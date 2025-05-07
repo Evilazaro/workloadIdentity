@@ -200,7 +200,7 @@ function Initialize-Environment {
     
     $script:ResourceGroupName = "myResourceGroup$script:RandomId"
     $script:ClusterName = "myAKSCluster$script:RandomId"
-    $script:UserAssignedIdentityName = "myIdentity$script:RandomId"
+    $script:UserAssignedIdentityName = "workload-identity-id"
     $script:ServiceAccountName = "workload-identity-sa"
     $script:FederatedIdentityCredentialName = "workload-identity-fa"
     $script:KeyVaultName = "keyvault-workload-id$script:RandomId"
@@ -260,6 +260,7 @@ function New-AksCluster {
         az aks create `
             --resource-group $script:ResourceGroupName `
             --name $script:ClusterName `
+            --enable-addons azure-keyvault-secrets-provider `
             --enable-oidc-issuer `
             --enable-workload-identity `
             --generate-ssh-keys `
@@ -525,7 +526,7 @@ function New-KeyVaultSecret {
     [CmdletBinding()]
     param()
 
-    $script:KeyVaultSecretName = "my-secret$script:RandomId"
+    $script:KeyVaultSecretName = "my-secret-demo"
     Write-LogMessage -Level "INFO" -Message "Creating secret: $script:KeyVaultSecretName in Key Vault"
     
     try {
@@ -574,6 +575,38 @@ function Set-IdentityAccess {
     }
 }
 
+function Install-CsiDrivers {
+    <#
+    .SYNOPSIS
+        Installs the Secrets Store CSI Driver and Azure Key Vault provider.
+    .DESCRIPTION
+        Installs both the Secrets Store CSI Driver and the Azure Key Vault provider,
+        which are required for accessing Azure Key Vault secrets from pods.
+    #>
+    [CmdletBinding()]
+    param()
+
+    Write-LogMessage -Level "INFO" -Message "Installing Secrets Store CSI Driver and Azure Key Vault provider"
+    
+    try {
+        # Add the Azure Key Vault provider repository
+        Write-LogMessage -Level "INFO" -Message "Adding Azure Key Vault provider repository"
+        helm repo add csi-secrets-store-provider-azure https://azure.github.io/secrets-store-csi-driver-provider-azure/charts
+
+        # Update Helm repositories
+        Write-LogMessage -Level "INFO" -Message "Updating Helm repositories"
+        helm repo update
+
+        # Install the Azure Key Vault provider
+        helm install azure-csi-provider csi-secrets-store-provider-azure/csi-secrets-store-provider-azure --namespace kube-system
+    }
+    catch {
+        Write-LogMessage -Level "ERROR" -Message "Failed to install Secrets Store CSI Driver or Azure Key Vault provider: $_"
+        Write-LogMessage -Level "INFO" -Message "For more troubleshooting, check pod logs: kubectl logs -n kube-system -l app=secrets-store-csi-driver"
+        exit 1
+    }
+}
+
 function Show-Summary {
     <#
     .SYNOPSIS
@@ -600,6 +633,7 @@ function Show-Summary {
 
     Write-LogMessage -Level "INFO" -Message "To clean up resources, run: az group delete --name $script:ResourceGroupName --yes"
 }
+
 #endregion
 
 #region Main Execution
@@ -619,42 +653,60 @@ function Start-Deployment {
         # Execute steps in sequence
         Initialize-Environment -LocationName $Location
         
+        # Create resource group
         New-AzureResourceGroup
         Write-Host "Resource group created: $script:ResourceGroupName"
-        Write-Host "Press any key to continue..."
-        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+                
+        # Create AKS cluster
         New-AksCluster
         Write-Host "AKS cluster created: $script:ClusterName"
         Write-Host "Press any key to continue..."
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        
+        # Create user-assigned managed identity
         New-ManagedIdentity
         Write-Host "User-assigned managed identity created: $script:UserAssignedIdentityName"
-        Write-Host "Press any key to continue..."
-        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+                
+        # In the Start-Deployment function, add this after Set-AksCredentials
         Set-AksCredentials
         Write-Host "AKS credentials configured"
         Write-Host "Press any key to continue..."
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+
+        # # Install Secrets Store CSI Driver and Azure Key Vault provider
+        # Install-CsiDrivers
+        # Write-Host "Secrets Store CSI Driver and Azure Key Vault provider installed"
+        # Write-Host "Store CSI Driver and Azure Key Vault provider installed"
+                
+        # Create Kubernetes service account with workload identity
         New-ServiceAccount
         Write-Host "Kubernetes service account created: $script:ServiceAccountName"
-        Write-Host "Press any key to continue..."
-        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+                
+        # Create federated identity credential
         New-FederatedIdentity
         Write-Host "Federated identity credential created: $script:FederatedIdentityCredentialName"
         Write-Host "Press any key to continue..."
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        
+        # Create Key Vault and configure access
         New-KeyVault
         Write-Host "Key Vault created: $script:KeyVaultName"
         Write-Host "Press any key to continue..."
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        
+        # Configure user access to Key Vault
         Set-UserAccess
         Write-Host "User access configured for Key Vault"
         Write-Host "Press any key to continue..."
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        
+        # Create a test secret in Key Vault
         New-KeyVaultSecret
         Write-Host "Key Vault secret created: $script:KeyVaultSecretName"
         Write-Host "Press any key to continue..."
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        
+        # Configure managed identity access to Key Vault
         Set-IdentityAccess
         Write-Host "Managed identity access configured for Key Vault"
         Write-Host "Press any key to continue..."
@@ -685,12 +737,3 @@ catch {
     Write-Error "An unexpected error occurred: $_"
     exit 1
 }
-
-# Add the Azure Key Vault provider repository
-helm repo add csi-secrets-store-provider-azure https://azure.github.io/secrets-store-csi-driver-provider-azure/charts
-
-# Update Helm repositories
-helm repo update
-
-# Install the Azure Key Vault provider
-helm install azure-csi-provider csi-secrets-store-provider-azure/csi-secrets-store-provider-azure --namespace kube-system
