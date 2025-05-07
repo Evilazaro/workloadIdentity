@@ -1,0 +1,655 @@
+<#
+.SYNOPSIS
+    Sets up an AKS cluster with workload identity integration using Azure CLI.
+
+.DESCRIPTION
+    This script creates all necessary resources to demonstrate Azure AD workload identity
+    with AKS and KeyVault integration using Azure CLI commands, including:
+    - Resource group
+    - AKS cluster with OIDC issuer and workload identity enabled
+    - User-assigned managed identity
+    - Kubernetes service account with workload identity
+    - Federated identity credential
+    - Azure Key Vault with RBAC permissions
+
+.PARAMETER Location
+    Azure region to deploy resources (default: eastus2)
+
+.EXAMPLE
+    .\SetupAKS.ps1
+    # Deploy to default location (eastus2)
+
+.EXAMPLE
+    .\SetupAKS.ps1 -Location "westus2"
+    # Deploy to westus2
+
+.NOTES
+    Author: [Your Name]
+    Date: May 7, 2025
+    Version: 2.0
+#>
+
+[CmdletBinding()]
+param(
+    [Parameter(Position = 0)]
+    [string]$Location = "eastus2"
+)
+
+#region Configuration
+# Script configuration
+$script:LogFile = "aks_workload_identity_setup.log"
+
+# Resource variables
+$script:RandomId = $null
+$script:ResourceGroupName = $null
+$script:ClusterName = $null
+$script:UserAssignedIdentityName = $null
+$script:ServiceAccountNamespace = "default"
+$script:ServiceAccountName = $null
+$script:FederatedIdentityCredentialName = $null
+$script:KeyVaultName = $null
+$script:SubscriptionId = $null
+$script:UserAssignedClientId = $null
+$script:AksOidcIssuer = $null
+$script:KeyVaultResourceId = $null
+$script:CallerObjectId = $null
+$script:KeyVaultSecretName = $null
+$script:IdentityPrincipalId = $null
+$script:KeyVaultUrl = $null
+#endregion
+
+#region Helper Functions
+function Initialize-Logging {
+    <#
+    .SYNOPSIS
+        Sets up logging to file and console.
+    .DESCRIPTION
+        Creates log directory if it doesn't exist and initializes logging.
+    #>
+    [CmdletBinding()]
+    param()
+
+    try {
+        $logDir = Split-Path -Parent $script:LogFile
+        if (-not (Test-Path -Path $logDir) -and $logDir -ne "") {
+            New-Item -Path $logDir -ItemType Directory -Force | Out-Null
+        }
+        
+        Write-LogMessage -Level "INFO" -Message "Logging initialized to $($script:LogFile)"
+    }
+    catch {
+        Write-Error "Failed to initialize logging: $_"
+        exit 1
+    }
+}
+
+function Write-LogMessage {
+    <#
+    .SYNOPSIS
+        Writes a log message with timestamp and level.
+    .DESCRIPTION
+        Formats and writes a log message to both console and log file.
+    .PARAMETER Level
+        Log level (INFO, ERROR, SUCCESS, WARNING).
+    .PARAMETER Message
+        The message to log.
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("INFO", "ERROR", "SUCCESS", "WARNING")]
+        [string]$Level,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$Message
+    )
+
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logMessage = "$timestamp - [$Level] $Message"
+    
+    # Output to console with appropriate color
+    switch ($Level) {
+        "ERROR" { 
+            Write-Host $logMessage -ForegroundColor Red 
+        }
+        "WARNING" { 
+            Write-Host $logMessage -ForegroundColor Yellow 
+        }
+        "SUCCESS" { 
+            Write-Host $logMessage -ForegroundColor Green 
+        }
+        default { 
+            Write-Host $logMessage 
+        }
+    }
+    
+    # Output to log file
+    Add-Content -Path $script:LogFile -Value $logMessage
+}
+
+function Test-CommandExists {
+    <#
+    .SYNOPSIS
+        Checks if a command exists.
+    .DESCRIPTION
+        Verifies if the specified command is available in the system.
+    .PARAMETER Command
+        The command to check.
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Command
+    )
+
+    try {
+        if (Get-Command $Command -ErrorAction Stop) {
+            return $true
+        }
+    }
+    catch {
+        Write-LogMessage -Level "ERROR" -Message "$Command is required but not installed"
+        Write-LogMessage -Level "INFO" -Message "Please install $Command before running this script"
+        return $false
+    }
+}
+
+function Clear-ResourcesOnError {
+    <#
+    .SYNOPSIS
+        Cleans up resources when an error occurs.
+    .DESCRIPTION
+        Deletes the resource group to clean up all created resources.
+    #>
+    [CmdletBinding()]
+    param()
+
+    Write-LogMessage -Level "ERROR" -Message "An error occurred. Cleaning up resources..."
+    if ($script:ResourceGroupName) {
+        Write-LogMessage -Level "INFO" -Message "Deleting resource group: $($script:ResourceGroupName)"
+        try {
+            az group delete --name $script:ResourceGroupName --yes --no-wait
+        }
+        catch {
+            # Continue even if cleanup fails
+        }
+    }
+}
+#endregion
+
+function Initialize-Environment {
+    <#
+    .SYNOPSIS
+        Initializes environment variables for the deployment.
+    .DESCRIPTION
+        Sets up resource names and other variables needed for the deployment.
+    .PARAMETER LocationName
+        Azure region to deploy resources.
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$LocationName
+    )
+
+    Write-LogMessage -Level "INFO" -Message "Setting up environment variables..."
+    
+    # Generate a random ID for resource names
+    $randomHex = -join ((48..57) + (97..102) | Get-Random -Count 6 | ForEach-Object { [char]$_ })
+    $script:RandomId = $randomHex
+    
+    $script:ResourceGroupName = "myResourceGroup$script:RandomId"
+    $script:ClusterName = "myAKSCluster$script:RandomId"
+    $script:UserAssignedIdentityName = "myIdentity$script:RandomId"
+    $script:ServiceAccountName = "workload-identity-sa$script:RandomId"
+    $script:FederatedIdentityCredentialName = "myFedIdentity$script:RandomId"
+    $script:KeyVaultName = "keyvault-workload-id$script:RandomId"
+
+    # Truncate Key Vault name if too long (max 24 characters)
+    if ($script:KeyVaultName.Length -gt 24) {
+        $script:KeyVaultName = $script:KeyVaultName.Substring(0, 24)
+    }
+
+    Write-LogMessage -Level "INFO" -Message "Using the following configuration:"
+    Write-LogMessage -Level "INFO" -Message "- Resource Group: $script:ResourceGroupName"
+    Write-LogMessage -Level "INFO" -Message "- Location: $LocationName"
+    Write-LogMessage -Level "INFO" -Message "- AKS Cluster Name: $script:ClusterName"
+}
+
+function New-AzureResourceGroup {
+    <#
+    .SYNOPSIS
+        Creates Azure resource group using Azure CLI.
+    .DESCRIPTION
+        Creates a resource group in the specified location and gets the subscription ID.
+    #>
+    [CmdletBinding()]
+    param()
+
+    Write-LogMessage -Level "INFO" -Message "Creating resource group: $script:ResourceGroupName"
+    
+    try {
+        # Create resource group
+        az group create --name $script:ResourceGroupName --location $Location --output none
+        
+        # Get subscription ID
+        Write-LogMessage -Level "INFO" -Message "Getting subscription ID"
+        $script:SubscriptionId = $(az account show --query id --output tsv)
+        
+        Write-LogMessage -Level "SUCCESS" -Message "Resource group created successfully"
+    }
+    catch {
+        Write-LogMessage -Level "ERROR" -Message "Failed to create resource group: $_"
+        exit 1
+    }
+}
+
+function New-AksCluster {
+    <#
+    .SYNOPSIS
+        Creates AKS cluster with required features using Azure CLI.
+    .DESCRIPTION
+        Creates an AKS cluster with OIDC issuer and workload identity enabled.
+    #>
+    [CmdletBinding()]
+    param()
+
+    Write-LogMessage -Level "INFO" -Message "Creating AKS cluster: $script:ClusterName (this may take several minutes)"
+    
+    try {
+        az aks create `
+            --resource-group $script:ResourceGroupName `
+            --name $script:ClusterName `
+            --enable-oidc-issuer `
+            --enable-workload-identity `
+            --generate-ssh-keys `
+            --node-count 1 `
+            --output none
+        
+        Write-LogMessage -Level "SUCCESS" -Message "AKS cluster created successfully"
+    }
+    catch {
+        Write-LogMessage -Level "ERROR" -Message "Failed to create AKS cluster: $_"
+        exit 1
+    }
+}
+
+function New-ManagedIdentity {
+    <#
+    .SYNOPSIS
+        Creates and configures user-assigned managed identity using Azure CLI.
+    .DESCRIPTION
+        Creates a user-assigned managed identity and retrieves its client ID.
+    #>
+    [CmdletBinding()]
+    param()
+
+    Write-LogMessage -Level "INFO" -Message "Creating user-assigned managed identity: $script:UserAssignedIdentityName"
+    
+    try {
+        # Create managed identity
+        az identity create `
+            --name $script:UserAssignedIdentityName `
+            --resource-group $script:ResourceGroupName `
+            --location $Location `
+            --subscription $script:SubscriptionId `
+            --output none
+            
+        # Get user-assigned managed identity client ID
+        Write-LogMessage -Level "INFO" -Message "Getting user-assigned managed identity client ID"
+        $script:UserAssignedClientId = $(az identity show `
+            --resource-group $script:ResourceGroupName `
+            --name $script:UserAssignedIdentityName `
+            --query 'clientId' `
+            --output tsv)
+
+        if ([string]::IsNullOrEmpty($script:UserAssignedClientId)) {
+            throw "Failed to get user-assigned managed identity client ID"
+        }
+        
+        # Get principal ID for later use
+        $script:IdentityPrincipalId = $(az identity show `
+            --resource-group $script:ResourceGroupName `
+            --name $script:UserAssignedIdentityName `
+            --query 'principalId' `
+            --output tsv)
+            
+        Write-LogMessage -Level "SUCCESS" -Message "Managed identity created successfully"
+    }
+    catch {
+        Write-LogMessage -Level "ERROR" -Message "Failed to create user-assigned managed identity: $_"
+        exit 1
+    }
+}
+
+function Set-AksCredentials {
+    <#
+    .SYNOPSIS
+        Configures AKS credentials and gets OIDC issuer URL using Azure CLI.
+    .DESCRIPTION
+        Gets AKS credentials for kubectl and retrieves the OIDC issuer URL.
+    #>
+    [CmdletBinding()]
+    param()
+
+    Write-LogMessage -Level "INFO" -Message "Getting AKS credentials"
+    
+    try {
+        # Get AKS credentials
+        az aks get-credentials `
+            --name $script:ClusterName `
+            --resource-group $script:ResourceGroupName `
+            --overwrite-existing
+
+        # Get AKS OIDC issuer URL
+        Write-LogMessage -Level "INFO" -Message "Getting AKS OIDC issuer URL"
+        $script:AksOidcIssuer = $(az aks show `
+            --name $script:ClusterName `
+            --resource-group $script:ResourceGroupName `
+            --query "oidcIssuerProfile.issuerUrl" `
+            --output tsv)
+
+        if ([string]::IsNullOrEmpty($script:AksOidcIssuer)) {
+            throw "Failed to get AKS OIDC issuer URL"
+        }
+        
+        Write-LogMessage -Level "SUCCESS" -Message "AKS credentials configured successfully"
+    }
+    catch {
+        Write-LogMessage -Level "ERROR" -Message "Failed to configure AKS credentials: $_"
+        exit 1
+    }
+}
+
+function New-ServiceAccount {
+    <#
+    .SYNOPSIS
+        Creates Kubernetes service account with workload identity.
+    .DESCRIPTION
+        Creates a Kubernetes service account with the necessary annotations for workload identity.
+    #>
+    [CmdletBinding()]
+    param()
+
+    Write-LogMessage -Level "INFO" -Message "Creating Kubernetes service account with workload identity"
+    
+    try {
+        $serviceAccountYaml = @"
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    azure.workload.identity/client-id: "$script:UserAssignedClientId"
+  name: "$script:ServiceAccountName"
+  namespace: "$script:ServiceAccountNamespace"
+"@
+
+        # Apply the service account YAML
+        $tempFile = New-TemporaryFile
+        $serviceAccountYaml | Out-File -FilePath $tempFile -Encoding utf8
+        kubectl apply -f $tempFile
+        Remove-Item -Path $tempFile
+
+        # Verify service account was created
+        $result = kubectl get serviceaccount $script:ServiceAccountName -n $script:ServiceAccountNamespace 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to create Kubernetes service account: $result"
+        }
+        
+        Write-LogMessage -Level "SUCCESS" -Message "Kubernetes service account created successfully"
+    }
+    catch {
+        Write-LogMessage -Level "ERROR" -Message "Failed to create Kubernetes service account: $_"
+        exit 1
+    }
+}
+
+function New-FederatedIdentity {
+    <#
+    .SYNOPSIS
+        Creates federated identity credential using Azure CLI.
+    .DESCRIPTION
+        Creates a federated identity credential linking the Kubernetes service account to the managed identity.
+    #>
+    [CmdletBinding()]
+    param()
+
+    Write-LogMessage -Level "INFO" -Message "Creating federated identity credential: $script:FederatedIdentityCredentialName"
+    
+    try {
+        az identity federated-credential create `
+            --name $script:FederatedIdentityCredentialName `
+            --identity-name $script:UserAssignedIdentityName `
+            --resource-group $script:ResourceGroupName `
+            --issuer $script:AksOidcIssuer `
+            --subject "system:serviceaccount:${script:ServiceAccountNamespace}:${script:ServiceAccountName}" `
+            --audience "api://AzureADTokenExchange" `
+            --output none
+        
+        Write-LogMessage -Level "SUCCESS" -Message "Federated identity credential created successfully"
+    }
+    catch {
+        Write-LogMessage -Level "ERROR" -Message "Failed to create federated identity credential: $_"
+        exit 1
+    }
+}
+
+function New-KeyVault {
+    <#
+    .SYNOPSIS
+        Creates and configures Azure Key Vault using Azure CLI.
+    .DESCRIPTION
+        Creates an Azure Key Vault with RBAC authorization enabled and retrieves its resource ID.
+    #>
+    [CmdletBinding()]
+    param()
+
+    Write-LogMessage -Level "INFO" -Message "Creating Azure Key Vault: $script:KeyVaultName"
+    
+    try {
+        # Create Key Vault with RBAC enabled
+        az keyvault create `
+            --name $script:KeyVaultName `
+            --resource-group $script:ResourceGroupName `
+            --location $Location `
+            --enable-purge-protection true `
+            --enable-rbac-authorization true `
+            --output none
+
+        # Get Key Vault resource ID
+        Write-LogMessage -Level "INFO" -Message "Getting Key Vault resource ID"
+        $script:KeyVaultResourceId = $(az keyvault show `
+            --name $script:KeyVaultName `
+            --resource-group $script:ResourceGroupName `
+            --query id `
+            --output tsv)
+
+        if ([string]::IsNullOrEmpty($script:KeyVaultResourceId)) {
+            throw "Failed to get Key Vault resource ID"
+        }
+        
+        # Get Key Vault URL for later use
+        $script:KeyVaultUrl = $(az keyvault show `
+            --name $script:KeyVaultName `
+            --resource-group $script:ResourceGroupName `
+            --query properties.vaultUri `
+            --output tsv)
+        
+        Write-LogMessage -Level "SUCCESS" -Message "Azure Key Vault created successfully"
+    }
+    catch {
+        Write-LogMessage -Level "ERROR" -Message "Failed to create Key Vault: $_"
+        exit 1
+    }
+}
+
+function Set-UserAccess {
+    <#
+    .SYNOPSIS
+        Configures current user access to Key Vault using Azure CLI.
+    .DESCRIPTION
+        Gets the current user's object ID and assigns the Key Vault Secrets Officer role.
+    #>
+    [CmdletBinding()]
+    param()
+
+    Write-LogMessage -Level "INFO" -Message "Getting current user object ID"
+    
+    try {
+        # Get current user object ID
+        $script:CallerObjectId = $(az ad signed-in-user show --query id --output tsv)
+
+        # Add role assignment for current user
+        Write-LogMessage -Level "INFO" -Message "Assigning Key Vault Secrets Officer role to current user"
+        az role assignment create `
+            --assignee $script:CallerObjectId `
+            --role "Key Vault Secrets Officer" `
+            --scope $script:KeyVaultResourceId `
+            --output none
+        
+        Write-LogMessage -Level "SUCCESS" -Message "User access configured successfully"
+    }
+    catch {
+        Write-LogMessage -Level "ERROR" -Message "Failed to configure user access: $_"
+        exit 1
+    }
+}
+
+function New-KeyVaultSecret {
+    <#
+    .SYNOPSIS
+        Creates a test secret in Key Vault using Azure CLI.
+    .DESCRIPTION
+        Creates a test secret with a random name in the Key Vault.
+    #>
+    [CmdletBinding()]
+    param()
+
+    $script:KeyVaultSecretName = "my-secret$script:RandomId"
+    Write-LogMessage -Level "INFO" -Message "Creating secret: $script:KeyVaultSecretName in Key Vault"
+    
+    try {
+        # Create a secret in Key Vault
+        az keyvault secret set `
+            --vault-name $script:KeyVaultName `
+            --name $script:KeyVaultSecretName `
+            --value "Hello!" `
+            --output none
+        
+        Write-LogMessage -Level "SUCCESS" -Message "Key Vault secret created successfully"
+    }
+    catch {
+        Write-LogMessage -Level "ERROR" -Message "Failed to set Key Vault secret: $_"
+        exit 1
+    }
+}
+
+function Set-IdentityAccess {
+    <#
+    .SYNOPSIS
+        Configures managed identity access to Key Vault using Azure CLI.
+    .DESCRIPTION
+        Uses the managed identity's principal ID and assigns the Key Vault Secrets User role.
+    #>
+    [CmdletBinding()]
+    param()
+
+    Write-LogMessage -Level "INFO" -Message "Configuring managed identity access to Key Vault"
+    
+    try {
+        # Assign role to managed identity
+        Write-LogMessage -Level "INFO" -Message "Assigning Key Vault Secrets User role to managed identity"
+        az role assignment create `
+            --assignee-object-id $script:IdentityPrincipalId `
+            --assignee-principal-type ServicePrincipal `
+            --role "Key Vault Secrets User" `
+            --scope $script:KeyVaultResourceId `
+            --output none
+        
+        Write-LogMessage -Level "SUCCESS" -Message "Managed identity access configured successfully"
+    }
+    catch {
+        Write-LogMessage -Level "ERROR" -Message "Failed to configure managed identity access: $_"
+        exit 1
+    }
+}
+
+function Show-Summary {
+    <#
+    .SYNOPSIS
+        Displays setup summary.
+    .DESCRIPTION
+        Shows a summary of all resources created during the setup process.
+    #>
+    [CmdletBinding()]
+    param()
+
+    Write-LogMessage -Level "SUCCESS" -Message "Setup completed successfully!"
+    Write-LogMessage -Level "INFO" -Message "AKS Resources:"
+    Write-LogMessage -Level "INFO" -Message "- Resource Group: $script:ResourceGroupName"
+    Write-LogMessage -Level "INFO" -Message "- Location: $Location"
+    Write-LogMessage -Level "INFO" -Message "- AKS Cluster: $script:ClusterName"
+    Write-LogMessage -Level "INFO" -Message "- User-assigned Identity: $script:UserAssignedIdentityName (Client ID: $script:UserAssignedClientId)"
+    Write-LogMessage -Level "INFO" -Message "- Kubernetes Service Account: $script:ServiceAccountName"
+    Write-LogMessage -Level "INFO" -Message "- Federated Identity Credential: $script:FederatedIdentityCredentialName"
+
+    Write-LogMessage -Level "INFO" -Message "Key Vault Resources:"
+    Write-LogMessage -Level "INFO" -Message "- Key Vault Name: $script:KeyVaultName"
+    Write-LogMessage -Level "INFO" -Message "- Key Vault URL: $script:KeyVaultUrl"
+    Write-LogMessage -Level "INFO" -Message "- Secret Name: $script:KeyVaultSecretName"
+
+    Write-LogMessage -Level "INFO" -Message "To clean up resources, run: az group delete --name $script:ResourceGroupName --yes"
+
+#endregion
+
+#region Main Execution
+function Start-Deployment {
+    <#
+    .SYNOPSIS
+        Main execution function.
+    .DESCRIPTION
+        Executes all the steps in sequence to set up AKS with workload identity.
+    #>
+    [CmdletBinding()]
+    param()
+    
+    Write-LogMessage -Level "INFO" -Message "Starting AKS Workload Identity setup script"
+    
+    try {
+        # Execute steps in sequence
+        Initialize-Environment -LocationName $Location
+        
+        New-AzureResourceGroup
+        New-AksCluster
+        New-ManagedIdentity
+        Set-AksCredentials
+        New-ServiceAccount
+        New-FederatedIdentity
+        New-KeyVault
+        Set-UserAccess
+        New-KeyVaultSecret
+        Set-IdentityAccess
+        Show-Summary
+        
+        Write-LogMessage -Level "INFO" -Message "Script execution completed"
+    }
+    catch {
+        Write-LogMessage -Level "ERROR" -Message "Deployment failed: $_"
+        Clear-ResourcesOnError
+        exit 1
+    }
+}
+#endregion
+
+# Script entry point
+try {
+    # Setup logging
+    Initialize-Logging
+    
+    # Start deployment
+    Start-Deployment
+}
+catch {
+    Write-Error "An unexpected error occurred: $_"
+    exit 1
+}
