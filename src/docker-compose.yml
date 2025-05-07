@@ -1,0 +1,15 @@
+services:
+  products:
+    image: ${DOCKER_REGISTRY-}products
+    build:
+      context: .
+      dockerfile: Products/Dockerfile
+
+  store:
+    image: ${DOCKER_REGISTRY-}store
+    build:
+      context: .
+      dockerfile: Store/Dockerfile
+    depends_on:
+      - productsdocker-
+

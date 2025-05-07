@@ -1,0 +1,69 @@
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: azure-kvname-wi # needs to be unique per namespace
+spec:
+  provider: azure
+  parameters:
+    usePodIdentity: "false"
+    clientID: "e48ff9fd-dab0-434b-9c06-c9bcdf3d25b2"
+    keyvaultName: keyvault-workload-idff62
+    tenantId: "0e2ff29e-431a-420b-8a46-c6f39106927b" 
+    objects:  |
+      array:
+        - |
+          objectName: my-secrettwo
+          objectType: secret
+          secretName: my-secrettwo
+  secretObjects:
+    - secretName: my-secrettwo
+      type: Opaque
+      data:
+        - objectName: my-secrettwo
+          key: hello         
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  namespace: default  # Replace with your namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: workload-identity-saff626a
+      containers:
+        - name: nginx
+          image: nginx
+          volumeMounts:
+          - name: secrets-store01-inline
+            mountPath: "/mnt/secrets-store"
+            readOnly: true
+          env:
+            - name: my_secret
+              valueFrom:
+                secretKeyRef:
+                  name: my-secrettwo
+                  key: hello
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          ports:
+            - containerPort: 80
+      volumes:
+        - name: secrets-store01-inline
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: "azure-kvname-wi"
