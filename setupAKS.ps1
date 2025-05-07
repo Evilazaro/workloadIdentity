@@ -201,7 +201,7 @@ function Initialize-Environment {
     $script:ResourceGroupName = "myResourceGroup$script:RandomId"
     $script:ClusterName = "myAKSCluster$script:RandomId"
     $script:UserAssignedIdentityName = "myIdentity$script:RandomId"
-    $script:ServiceAccountName = "workload-identity-sa$script:RandomId"
+    $script:ServiceAccountName = "workload-identity-sa"
     $script:FederatedIdentityCredentialName = "myFedIdentity$script:RandomId"
     $script:KeyVaultName = "keyvault-workload-id$script:RandomId"
 
@@ -599,7 +599,7 @@ function Show-Summary {
     Write-LogMessage -Level "INFO" -Message "- Secret Name: $script:KeyVaultSecretName"
 
     Write-LogMessage -Level "INFO" -Message "To clean up resources, run: az group delete --name $script:ResourceGroupName --yes"
-
+}
 #endregion
 
 #region Main Execution
@@ -620,15 +620,47 @@ function Start-Deployment {
         Initialize-Environment -LocationName $Location
         
         New-AzureResourceGroup
+        Write-Host "Resource group created: $script:ResourceGroupName"
+        Write-Host "Press any key to continue..."
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         New-AksCluster
+        Write-Host "AKS cluster created: $script:ClusterName"
+        Write-Host "Press any key to continue..."
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         New-ManagedIdentity
+        Write-Host "User-assigned managed identity created: $script:UserAssignedIdentityName"
+        Write-Host "Press any key to continue..."
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         Set-AksCredentials
+        Write-Host "AKS credentials configured"
+        Write-Host "Press any key to continue..."
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         New-ServiceAccount
+        Write-Host "Kubernetes service account created: $script:ServiceAccountName"
+        Write-Host "Press any key to continue..."
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         New-FederatedIdentity
+        Write-Host "Federated identity credential created: $script:FederatedIdentityCredentialName"
+        Write-Host "Press any key to continue..."
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         New-KeyVault
+        Write-Host "Key Vault created: $script:KeyVaultName"
+        Write-Host "Press any key to continue..."
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         Set-UserAccess
+        Write-Host "User access configured for Key Vault"
+        Write-Host "Press any key to continue..."
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         New-KeyVaultSecret
+        Write-Host "Key Vault secret created: $script:KeyVaultSecretName"
+        Write-Host "Press any key to continue..."
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         Set-IdentityAccess
+        Write-Host "Managed identity access configured for Key Vault"
+        Write-Host "Press any key to continue..."
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        
+        # Show summary of resources created
         Show-Summary
         
         Write-LogMessage -Level "INFO" -Message "Script execution completed"
