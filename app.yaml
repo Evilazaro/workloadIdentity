@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-deployment
+  name: nginx-deployment-demo
   namespace: default  # Replace with your namespace
 spec:
   replicas: 1
@@ -19,26 +19,27 @@ spec:
       containers:
         - name: nginx
           image: nginx
-      #     volumeMounts:
-      #     - name: secrets-store01-inline
-      #       mountPath: "/mnt/secrets-store"
-      #       readOnly: true
-      #     env:
-      #       - name: my-secret-demo
-      #         valueFrom:
-      #           secretKeyRef:
-      #             name: my-secret-demo
-      #             key: my-secret-demo
-      #     resources:
-      #       limits:
-      #         memory: "128Mi"
-      #         cpu: "500m"
-      #     ports:
-      #       - containerPort: 80
-      # volumes:
-      #   - name: secrets-store01-inline
-      #     csi:
-      #       driver: secrets-store.csi.k8s.io
-      #       readOnly: true
-      #       volumeAttributes:
-      #         secretProviderClass: kv-sync
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+          volumeMounts:
+            - name: secrets-store
+              mountPath: /mnt/secrets-store
+              readOnly: true
+          env:
+            - name: my-secret-demo
+              valueFrom:
+                secretKeyRef:
+                  key: my-secret-demo
+                  name: my-secret-demo
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: kv-sync
