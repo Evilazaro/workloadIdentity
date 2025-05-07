@@ -1,3 +1,13 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    azure.workload.identity/client-id: "f9537310-82f8-49b5-b9fe-c351b87501ac"
+  name: "workload-identity-sa"
+  namespace: "default"
+
+---
+
 apiVersion: secrets-store.csi.x-k8s.io/v1
 kind: SecretProviderClass
 metadata:
@@ -6,20 +16,20 @@ spec:
   provider: azure
   parameters:
     usePodIdentity: "false"
-    clientID: "e48ff9fd-dab0-434b-9c06-c9bcdf3d25b2"
-    keyvaultName: keyvault-workload-idff62
+    clientID: "f9537310-82f8-49b5-b9fe-c351b87501ac"
+    keyvaultName: keyvault-workload-idf850
     tenantId: "0e2ff29e-431a-420b-8a46-c6f39106927b" 
     objects:  |
       array:
         - |
-          objectName: my-secrettwo
+          objectName: my-secretf8502a
           objectType: secret
-          secretName: my-secrettwo
+          secretName: my-secretf8502a
   secretObjects:
-    - secretName: my-secrettwo
+    - secretName: my-secretf8502a
       type: Opaque
       data:
-        - objectName: my-secrettwo
+        - objectName: my-secretf8502a
           key: hello         
 
 ---
@@ -40,7 +50,7 @@ spec:
         app: nginx
         azure.workload.identity/use: "true"
     spec:
-      serviceAccountName: workload-identity-saff626a
+      serviceAccountName: workload-identity-sa
       containers:
         - name: nginx
           image: nginx
@@ -52,7 +62,7 @@ spec:
             - name: my_secret
               valueFrom:
                 secretKeyRef:
-                  name: my-secrettwo
+                  name: my-secretf8502a
                   key: hello
           resources:
             limits:

@@ -202,7 +202,7 @@ function Initialize-Environment {
     $script:ClusterName = "myAKSCluster$script:RandomId"
     $script:UserAssignedIdentityName = "myIdentity$script:RandomId"
     $script:ServiceAccountName = "workload-identity-sa"
-    $script:FederatedIdentityCredentialName = "myFedIdentity$script:RandomId"
+    $script:FederatedIdentityCredentialName = "workload-identity-fa"
     $script:KeyVaultName = "keyvault-workload-id$script:RandomId"
 
     # Truncate Key Vault name if too long (max 24 characters)
@@ -685,3 +685,12 @@ catch {
     Write-Error "An unexpected error occurred: $_"
     exit 1
 }
+
+# Add the Azure Key Vault provider repository
+helm repo add csi-secrets-store-provider-azure https://azure.github.io/secrets-store-csi-driver-provider-azure/charts
+
+# Update Helm repositories
+helm repo update
+
+# Install the Azure Key Vault provider
+helm install azure-csi-provider csi-secrets-store-provider-azure/csi-secrets-store-provider-azure --namespace kube-system
