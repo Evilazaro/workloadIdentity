@@ -808,9 +808,7 @@ function Start-Deployment {
         # Configure managed identity access to Key Vault
         Set-IdentityAccess
         Write-Host "Managed identity access configured for Key Vault"
-        Write-Host "Press any key to continue..."
-        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-        
+               
         # Show summary of resources created
         Show-Summary
         
