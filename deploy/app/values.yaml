@@ -104,7 +104,7 @@ volumes:
   driver: secrets-store.csi.k8s.io
   readOnly: true
   volumeAttributes:
-    secretProviderClass: kv-sync
+    secretProviderClass: kv-sync-helm
 
 # Additional volumeMounts on the output Deployment definition.
 volumeMounts: 

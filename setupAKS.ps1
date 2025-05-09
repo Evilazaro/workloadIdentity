@@ -54,6 +54,7 @@ $script:AksOidcIssuer = $null
 $script:KeyVaultResourceId = $null
 $script:CallerObjectId = $null
 $script:KeyVaultSecretName = $null
+$script:KeyVaultCertificateName = $null
 $script:IdentityPrincipalId = $null
 $script:KeyVaultUrl = $null
 #endregion
@@ -260,7 +261,7 @@ function New-AksCluster {
         az aks create `
             --resource-group $script:ResourceGroupName `
             --name $script:ClusterName `
-            --enable-addons azure-keyvault-secrets-provider azure-keyvault-certs-provider `
+            --enable-addons azure-keyvault-secrets-provider  `
             --enable-oidc-issuer `
             --enable-workload-identity `
             --generate-ssh-keys `
@@ -509,6 +510,15 @@ function Set-UserAccess {
             --output none
         
         Write-LogMessage -Level "SUCCESS" -Message "User access configured successfully"
+
+        Write-LogMessage -Level "INFO" -Message "Assigning Key Vault Certificates Officer role to current user"
+        az role assignment create `
+            --assignee $script:CallerObjectId `
+            --role "Key Vault Certificates Officer" `
+            --scope $script:KeyVaultResourceId `
+            --output none
+        
+        Write-LogMessage -Level "SUCCESS" -Message "User access configured successfully"
     }
     catch {
         Write-LogMessage -Level "ERROR" -Message "Failed to configure user access: $_"
@@ -519,29 +529,108 @@ function Set-UserAccess {
 function New-KeyVaultSecret {
     <#
     .SYNOPSIS
-        Creates a test secret in Key Vault using Azure CLI.
+        Creates test secrets and certificates in Azure Key Vault.
     .DESCRIPTION
-        Creates a test secret with a random name in the Key Vault.
+        Creates a test secret and self-signed certificate in the Key Vault using Azure CLI and
+        exports the certificate to the local file system.
+    .NOTES
+        Follows Azure security best practices for certificate management.
     #>
     [CmdletBinding()]
     param()
 
     $script:KeyVaultSecretName = "my-secret-demo"
-    Write-LogMessage -Level "INFO" -Message "Creating secret: $script:KeyVaultSecretName in Key Vault"
+    $script:KeyVaultCertificateName = "my-cert-demo"
+    $certificateOutputPath = ".\certs"
+    $tempPolicyPath = ".\cert-policy.json"
     
     try {
-        # Create a secret in Key Vault
+        Write-LogMessage -Level "INFO" -Message "Creating test secret in Key Vault: $script:KeyVaultSecretName"
+
+        # Create a secret in Key Vault with expiration date (Azure best practice)
+        $expiryDate = (Get-Date).AddYears(1).ToString("yyyy-MM-dd")
         az keyvault secret set `
             --vault-name $script:KeyVaultName `
             --name $script:KeyVaultSecretName `
             --value "Hello!" `
+            --expires $expiryDate `
             --output none
         
-        Write-LogMessage -Level "SUCCESS" -Message "Key Vault secret created successfully"
+        Write-LogMessage -Level "SUCCESS" -Message "Key Vault secret created successfully with 1-year expiration"
+
+        # Create directory for certificate output if it doesn't exist
+        if (-not (Test-Path -Path $certificateOutputPath)) {
+            New-Item -Path $certificateOutputPath -ItemType Directory -Force | Out-Null
+            Write-LogMessage -Level "INFO" -Message "Created certificate output directory: $certificateOutputPath"
+        }
+
+        # Create certificate in Key Vault
+        Write-LogMessage -Level "INFO" -Message "Creating test certificate in Key Vault: $script:KeyVaultCertificateName"
+
+        # Create certificate policy with Azure recommended settings
+        $validityInMonths = 12 # 1 year validity (shorter is better for security)
+        $policyJson = @"
+{
+  "issuerParameters": {
+    "name": "Self"
+  },
+  "x509CertificateProperties": {
+    "subject": "CN=mydomain.com",
+    "validityInMonths": $validityInMonths,
+    "keyUsage": [
+      "digitalSignature",
+      "keyEncipherment"
+    ],
+    "subjectAlternativeNames": {
+      "dnsNames": ["mydomain.com"]
+    }
+  },
+  "keyProperties": {
+    "exportable": true,
+    "keyType": "RSA",
+    "keySize": 3072,
+    "reuseKey": false
+  },
+  "secretProperties": {
+    "contentType": "application/x-pem-file"
+  }
+}
+"@ | Out-File -Encoding utf8 -FilePath $tempPolicyPath
+
+        # Create certificate in Key Vault
+        az keyvault certificate create `
+            --vault-name $script:KeyVaultName `
+            --name $script:KeyVaultCertificateName `
+            --policy "@$tempPolicyPath" | Out-Null
+
+        # Wait for certificate creation to complete
+        Write-LogMessage -Level "INFO" -Message "Waiting for certificate creation to complete..."
+        Start-Sleep -Seconds 10
+
+        # Retrieve and save the certificate
+        $pemPath = Join-Path -Path $certificateOutputPath -ChildPath "$script:KeyVaultCertificateName.pem"
+        $pemSecret = az keyvault secret show `
+            --vault-name $script:KeyVaultName `
+            --name $script:KeyVaultCertificateName `
+            --query "value" -o tsv
+            
+        if ([string]::IsNullOrWhiteSpace($pemSecret)) {
+            throw "Failed to retrieve certificate content from Key Vault"
+        }
+
+        $pemSecret | Out-File -Encoding ascii -FilePath $pemPath
+        Write-LogMessage -Level "SUCCESS" -Message "Key Vault certificate created and saved to '$pemPath'"
     }
     catch {
-        Write-LogMessage -Level "ERROR" -Message "Failed to set Key Vault secret: $_"
+        Write-LogMessage -Level "ERROR" -Message "Failed to set Key Vault secret or certificate: $_"
         exit 1
+    }
+    finally {
+        # Clean up temporary files (security best practice)
+        if (Test-Path -Path $tempPolicyPath) {
+            Remove-Item -Path $tempPolicyPath -Force
+            Write-LogMessage -Level "INFO" -Message "Cleaned up temporary certificate policy file"
+        }
     }
 }
 
@@ -564,6 +653,16 @@ function Set-IdentityAccess {
             --assignee-object-id $script:IdentityPrincipalId `
             --assignee-principal-type ServicePrincipal `
             --role "Key Vault Secrets User" `
+            --scope $script:KeyVaultResourceId `
+            --output none
+        
+        Write-LogMessage -Level "SUCCESS" -Message "Managed identity access configured successfully"
+
+        Write-LogMessage -Level "INFO" -Message "Assigning Key Vault Certificate User role to managed identity"
+        az role assignment create `
+            --assignee-object-id $script:IdentityPrincipalId `
+            --assignee-principal-type ServicePrincipal `
+            --role "Key Vault Certificate User" `
             --scope $script:KeyVaultResourceId `
             --output none
         
@@ -633,87 +732,6 @@ function Show-Summary {
 
     Write-LogMessage -Level "INFO" -Message "To clean up resources, run: az group delete --name $script:ResourceGroupName --yes"
 }
-
-function New-AzKeyVaultPemCertificate {
-    param (
-        [Parameter(Mandatory = $true)]
-        [string]$KeyVaultName,
-
-        [Parameter(Mandatory = $true)]
-        [string]$CertificateName,
-
-        [Parameter(Mandatory = $false)]
-        [string]$SubjectName = "CN=example.com",
-
-        [Parameter(Mandatory = $false)]
-        [int]$ValidYears = 1,
-
-        [Parameter(Mandatory = $false)]
-        [string]$OutputPath = ""
-    )
-
-    # Convert years to months
-    $validityInMonths = $ValidYears * 12
-
-    # Create the certificate policy JSON file
-    $policyJson = @"
-{
-  "issuerParameters": {
-    "name": "Self"
-  },
-  "x509CertificateProperties": {
-    "subject": "$SubjectName",
-    "validityInMonths": $validityInMonths,
-    "keyUsage": [
-      "digitalSignature",
-      "keyEncipherment"
-    ],
-    "subjectAlternativeNames": {
-      "dnsNames": []
-    }
-  },
-  "keyProperties": {
-    "exportable": true,
-    "keyType": "RSA",
-    "keySize": 2048,
-    "reuseKey": false
-  },
-  "secretProperties": {
-    "contentType": "application/x-pem-file"
-  }
-}
-"@ | Out-File -Encoding utf8 -FilePath ".\cert-policy.json"
-
-    # Create the certificate in Key Vault
-    Write-Host "🔧 Creating certificate '$CertificateName' in Key Vault '$KeyVaultName'..."
-    az keyvault certificate create `
-        --vault-name $KeyVaultName `
-        --name $CertificateName `
-        --policy "@cert-policy.json" | Out-Null
-
-    # Wait until it's available
-    Write-Host "⏳ Waiting for certificate creation to complete..."
-    Start-Sleep -Seconds 10
-
-    # Retrieve and decode the certificate as secret
-    $pemSecret = az keyvault secret show `
-        --vault-name $KeyVaultName `
-        --name $CertificateName `
-        --query "value" -o tsv
-
-    if (-not [string]::IsNullOrWhiteSpace($OutputPath)) {
-        $pemPath = Join-Path -Path $OutputPath -ChildPath "$CertificateName.pem"
-        $pemSecret | Out-File -Encoding ascii -FilePath $pemPath
-        Write-Host "✅ PEM certificate saved to '$pemPath'"
-    } else {
-        Write-Host "`n📄 PEM Certificate Content:"
-        Write-Output $pemSecret
-    }
-
-    # Cleanup
-    Remove-Item ".\cert-policy.json" -Force
-}
-
 
 #endregion
 

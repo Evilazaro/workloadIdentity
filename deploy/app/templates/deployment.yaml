@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "app.fullname" . }}
+  name: {{ include "app.fullname" . }}-helm-deployment
   labels:
     {{- include "app.labels" . | nindent 4 }}
 spec:
@@ -67,6 +67,11 @@ spec:
                 secretKeyRef:
                   key: my-secret-demo
                   name: my-secret-demo
+            - name: my-cert-demo
+              valueFrom:
+                secretKeyRef:
+                  key: tls.crt
+                  name: my-cert-demo
       {{- with .Values.volumes }}
       volumes:
         {{- toYaml . | nindent 8 }}
