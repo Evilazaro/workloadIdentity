@@ -260,7 +260,7 @@ function New-AksCluster {
         az aks create `
             --resource-group $script:ResourceGroupName `
             --name $script:ClusterName `
-            --enable-addons azure-keyvault-secrets-provider `
+            --enable-addons azure-keyvault-secrets-provider azure-keyvault-certs-provider `
             --enable-oidc-issuer `
             --enable-workload-identity `
             --generate-ssh-keys `
@@ -633,6 +633,87 @@ function Show-Summary {
 
     Write-LogMessage -Level "INFO" -Message "To clean up resources, run: az group delete --name $script:ResourceGroupName --yes"
 }
+
+function New-AzKeyVaultPemCertificate {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$KeyVaultName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$CertificateName,
+
+        [Parameter(Mandatory = $false)]
+        [string]$SubjectName = "CN=example.com",
+
+        [Parameter(Mandatory = $false)]
+        [int]$ValidYears = 1,
+
+        [Parameter(Mandatory = $false)]
+        [string]$OutputPath = ""
+    )
+
+    # Convert years to months
+    $validityInMonths = $ValidYears * 12
+
+    # Create the certificate policy JSON file
+    $policyJson = @"
+{
+  "issuerParameters": {
+    "name": "Self"
+  },
+  "x509CertificateProperties": {
+    "subject": "$SubjectName",
+    "validityInMonths": $validityInMonths,
+    "keyUsage": [
+      "digitalSignature",
+      "keyEncipherment"
+    ],
+    "subjectAlternativeNames": {
+      "dnsNames": []
+    }
+  },
+  "keyProperties": {
+    "exportable": true,
+    "keyType": "RSA",
+    "keySize": 2048,
+    "reuseKey": false
+  },
+  "secretProperties": {
+    "contentType": "application/x-pem-file"
+  }
+}
+"@ | Out-File -Encoding utf8 -FilePath ".\cert-policy.json"
+
+    # Create the certificate in Key Vault
+    Write-Host "🔧 Creating certificate '$CertificateName' in Key Vault '$KeyVaultName'..."
+    az keyvault certificate create `
+        --vault-name $KeyVaultName `
+        --name $CertificateName `
+        --policy "@cert-policy.json" | Out-Null
+
+    # Wait until it's available
+    Write-Host "⏳ Waiting for certificate creation to complete..."
+    Start-Sleep -Seconds 10
+
+    # Retrieve and decode the certificate as secret
+    $pemSecret = az keyvault secret show `
+        --vault-name $KeyVaultName `
+        --name $CertificateName `
+        --query "value" -o tsv
+
+    if (-not [string]::IsNullOrWhiteSpace($OutputPath)) {
+        $pemPath = Join-Path -Path $OutputPath -ChildPath "$CertificateName.pem"
+        $pemSecret | Out-File -Encoding ascii -FilePath $pemPath
+        Write-Host "✅ PEM certificate saved to '$pemPath'"
+    } else {
+        Write-Host "`n📄 PEM Certificate Content:"
+        Write-Output $pemSecret
+    }
+
+    # Cleanup
+    Remove-Item ".\cert-policy.json" -Force
+}
+
 
 #endregion
 

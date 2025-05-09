@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-deployment-demo
+  name: nginx-deployment-demov2
   namespace: default  # Replace with your namespace
 spec:
   replicas: 3
@@ -31,11 +31,16 @@ spec:
               mountPath: /mnt/secrets-store
               readOnly: true
           env:
-            - name: my-secret-demo
+            # - name: my-secret-demo
+            #   valueFrom:
+            #     secretKeyRef:
+            #       key: my-secret-demo
+            #       name: my-secret-demo
+            - name: my-cert-demo6
               valueFrom:
                 secretKeyRef:
-                  key: my-secret-demo
-                  name: my-secret-demo
+                  key: tls.crt
+                  name: my-cert-demo6
       volumes:
         - name: secrets-store
           csi:
