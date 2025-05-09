@@ -5,7 +5,7 @@ metadata:
   name: app-deployment
   namespace: default  # Replace with your namespace
 spec:
-  replicas: 3
+  replicas: 5
   selector:
     matchLabels:
       app: nginx

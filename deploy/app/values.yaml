@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 
 # This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
-replicaCount: 3
+replicaCount: 5
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
@@ -101,10 +101,10 @@ autoscaling:
 volumes: 
 - name: secrets-store
   csi:
-  driver: secrets-store.csi.k8s.io
-  readOnly: true
-  volumeAttributes:
-    secretProviderClass: kv-sync-helm
+    driver: secrets-store.csi.k8s.io
+    readOnly: true
+    volumeAttributes:
+      secretProviderClass: kv-sync-helm
 
 # Additional volumeMounts on the output Deployment definition.
 volumeMounts: 
