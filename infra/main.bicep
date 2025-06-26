@@ -3,6 +3,8 @@ targetScope = 'subscription'
 param solutionName string
 param envName string
 param location string
+@secure()
+param sshPublicKey string
 
 resource resourceGroup 'Microsoft.Resources/resourceGroups@2025-04-01' = {
   name: '${solutionName}-${envName}-${location}-rg'
@@ -42,5 +44,6 @@ module workload 'modules/workload.bicep' = {
     name: solutionName
     location: location
     logAnalyticsWorkspaceId: logAnalytics.outputs.logAnalyticsWorkspaceId
+    sshPublicKey: sshPublicKey
   }
 }

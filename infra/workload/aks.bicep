@@ -2,7 +2,7 @@
 param name string
 
 @description('The Azure region where the AKS cluster will be deployed')
-param location string 
+param location string
 
 @description('Tags to apply to the AKS cluster')
 param tags object = {}
@@ -18,6 +18,16 @@ param enableDiagnosticLogs bool = true
 
 @description('Log Analytics workspace resource ID for diagnostic logs')
 param logAnalyticsWorkspaceId string
+
+@description('Enable SSH access to cluster nodes')
+param enableSshAccess bool = true
+
+@description('SSH public key data for node access. If not provided, a new key pair will be generated.')
+@secure()
+param sshPublicKey string
+
+@description('SSH username for node access')
+param sshUsername string = 'azureuser'
 
 // Use the latest stable API version
 resource aksCluster 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
@@ -56,11 +66,26 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
       dnsServiceIP: '10.0.0.10'
     }
     dnsPrefix: 'wkld'
+
+    // Linux profile for SSH access to nodes
+    linuxProfile: enableSshAccess
+      ? {
+          adminUsername: sshUsername
+          ssh: {
+            publicKeys: [
+              {
+                keyData: !empty(sshPublicKey) ? sshPublicKey : ''
+              }
+            ]
+          }
+        }
+      : null
+
     agentPoolProfiles: [
       {
         name: 'system'
-        count: 2
-        vmSize: vmSize
+        count: 1
+        vmSize: 'Standard_DS2_v2'
         osType: 'Linux'
         mode: 'System'
         type: 'VirtualMachineScaleSets'
@@ -209,3 +234,16 @@ output nodeResourceGroup string = aksCluster.properties.nodeResourceGroup
 
 @description('The current Kubernetes version of the cluster')
 output currentKubernetesVersion string = aksCluster.properties.currentKubernetesVersion
+
+@description('SSH access configuration')
+output sshConfiguration object = enableSshAccess
+  ? {
+      enabled: true
+      username: sshUsername
+      keyProvided: !empty(sshPublicKey)
+      accessNote: 'SSH access is enabled. You can connect to nodes using: ssh ${sshUsername}@<node-ip>'
+    }
+  : {
+      enabled: false
+      note: 'SSH access is disabled for enhanced security'
+    }

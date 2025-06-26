@@ -1,3 +1,12 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
 
 name: workload-identity
+infra:
+  path: ./infra
+  provider: bicep
+
+hooks:
+  preprovision:
+    shell: sh
+    run: ./infra/hooks/preprovision.sh
+  

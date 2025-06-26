@@ -5,7 +5,7 @@ module keyVault '../security/keyVault.bicep' = {
   name: 'keyVault'
   scope: resourceGroup()
   params: {
-    name: '${name}-${uniqueString(name,resourceGroup().id,subscription().id)}-kv'
+    name: 'wkl-${uniqueString(name,resourceGroup().id,subscription().id)}-kv'
     location: location
   }
 }
