@@ -2,7 +2,7 @@
 param name string
 
 @description('The Azure region where the AKS cluster will be deployed')
-param location string = resourceGroup().location
+param location string 
 
 @description('Tags to apply to the AKS cluster')
 param tags object = {}
@@ -17,11 +17,11 @@ param vmSize string = 'Standard_DS2_v2'
 param enableDiagnosticLogs bool = true
 
 @description('Log Analytics workspace resource ID for diagnostic logs')
-param logAnalyticsWorkspaceId string 
+param logAnalyticsWorkspaceId string
 
 // Use the latest stable API version
 resource aksCluster 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
-  name: '${name}-${uniqueString(resourceGroup().id)}-aks'
+  name: name
   location: location
   tags: tags
   identity: {
@@ -185,47 +185,6 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
   }
 }
 
-// Diagnostic settings for AKS cluster
-resource aksClusterDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (enableDiagnosticLogs && !empty(logAnalyticsWorkspaceId)) {
-  name: '${aksCluster.name}-diagnostics'
-  scope: aksCluster
-  properties: {
-    workspaceId: logAnalyticsWorkspaceId
-    logs: [
-      {
-        category: 'kube-apiserver'
-        enabled: true
-      }
-      {
-        category: 'kube-audit'
-        enabled: true
-      }
-      {
-        category: 'kube-controller-manager'
-        enabled: true
-      }
-      {
-        category: 'kube-scheduler'
-        enabled: true
-      }
-      {
-        category: 'cluster-autoscaler'
-        enabled: true
-      }
-      {
-        category: 'guard'
-        enabled: true
-      }
-    ]
-    metrics: [
-      {
-        category: 'AllMetrics'
-        enabled: true
-      }
-    ]
-  }
-}
-
 // Outputs
 @description('The resource ID of the AKS cluster')
 output clusterResourceId string = aksCluster.id
@@ -250,7 +209,3 @@ output nodeResourceGroup string = aksCluster.properties.nodeResourceGroup
 
 @description('The current Kubernetes version of the cluster')
 output currentKubernetesVersion string = aksCluster.properties.currentKubernetesVersion
-
-metadata description = 'This Bicep template deploys an Azure Kubernetes Service (AKS) cluster with workload identity, Key Vault integration, and security best practices.'
-metadata author = 'Azure Infrastructure Team'
-metadata version = '1.0.0'

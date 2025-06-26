@@ -4,10 +4,8 @@ param solutionName string
 param envName string
 param location string
 
-var componentsName string = '${solutionName}-${envName}-${location}'
-
 resource resourceGroup 'Microsoft.Resources/resourceGroups@2025-04-01' = {
-  name: '${componentsName}-rg'
+  name: '${solutionName}-${envName}-${location}-rg'
   location: location
 }
 
@@ -19,20 +17,30 @@ module identity 'modules/identity.bicep' = {
   }
 }
 
-module logAnalytics 'monitoring/logAnalytics.bicep' = {
+module security 'modules/security.bicep'= {
   scope: resourceGroup
-  name: 'monitoring'
+  name: 'security'
   params: {
-    name: componentsName
+    name: solutionName
     location: location
   }
 }
 
-module aks 'aks/aks.bicep' = {
+module logAnalytics 'monitoring/logAnalytics.bicep' = {
   scope: resourceGroup
-  name: 'aksCluster'
+  name: 'monitoring'
   params: {
     name: solutionName
+    location: location
+  }
+}
+
+module workload 'modules/workload.bicep' = {
+  scope: resourceGroup
+  name: 'workload'
+  params: {
+    name: solutionName
+    location: location
     logAnalyticsWorkspaceId: logAnalytics.outputs.logAnalyticsWorkspaceId
   }
 }

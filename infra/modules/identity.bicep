@@ -4,7 +4,7 @@ module managedIdentity '../identity/managedIdentity.bicep' = {
   scope: resourceGroup()
   name: 'managedIdentity-${name}'
   params: {
-    name: name
+    name: '${name}-${uniqueString(name,resourceGroup().id,subscription().id)}-mi'
   }
 }
 
