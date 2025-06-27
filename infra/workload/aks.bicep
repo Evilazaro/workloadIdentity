@@ -19,15 +19,21 @@ param enableDiagnosticLogs bool = true
 @description('Log Analytics workspace resource ID for diagnostic logs')
 param logAnalyticsWorkspaceId string
 
-@description('Enable SSH access to cluster nodes')
+@description('Enable SSH access to cluster nodes (required for SSH-only authentication)')
 param enableSshAccess bool = true
 
-@description('SSH public key data for node access. If not provided, a new key pair will be generated.')
+@description('SSH public key data for node access. Required for SSH-only authentication. Must start with ssh-rsa, ssh-ed25519, or ecdsa-sha2-')
 @secure()
 param sshPublicKey string
 
 @description('SSH username for node access')
 param sshUsername string = 'azureuser'
+
+@description('Enable private cluster for enhanced security (recommended for production)')
+param enablePrivateCluster bool = false
+
+@description('Authorized IP ranges for API server access (empty array allows all IPs)')
+param authorizedIpRanges array = []
 
 // Use the latest stable API version
 resource aksCluster 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
@@ -46,14 +52,12 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
     kubernetesVersion: kubernetesVersion
     enableRBAC: true
 
-    // Disable local accounts for enhanced security
-    disableLocalAccounts: true
+    // Enable local accounts for SSH-only authentication
+    // Note: When using SSH-only auth, local accounts must be enabled
+    disableLocalAccounts: false
 
-    // Enable Azure AD integration
-    aadProfile: {
-      managed: true
-      enableAzureRBAC: true
-    }
+    // Azure AD integration removed for SSH-only authentication
+    // aadProfile is not configured to rely solely on SSH access
 
     networkProfile: {
       networkPlugin: 'azure'
@@ -67,14 +71,14 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
     }
     dnsPrefix: 'wkld'
 
-    // Linux profile for SSH access to nodes
+    // Linux profile for SSH access to nodes (required for SSH-only authentication)
     linuxProfile: enableSshAccess
       ? {
           adminUsername: sshUsername
           ssh: {
             publicKeys: [
               {
-                keyData: !empty(sshPublicKey) ? sshPublicKey : ''
+                keyData: sshPublicKey // SSH key is required for SSH-only authentication
               }
             ]
           }
@@ -93,8 +97,9 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
         enableAutoScaling: true
         minCount: 1
         maxCount: 3
-        // Disable public IPs for better security
-        enableNodePublicIP: true
+        // Disable public IPs for better security in production
+        // Set to false for production environments to improve security
+        enableNodePublicIP: false
         osSKU: 'AzureLinux' // Use Azure Linux for better security and performance
         // Disable UltraSSD unless specifically needed
         enableUltraSSD: false
@@ -117,8 +122,9 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
         enableAutoScaling: true
         minCount: 1
         maxCount: 10
-        // Disable public IPs for better security
-        enableNodePublicIP: true
+        // Disable public IPs for better security in production
+        // Set to false for production environments to improve security
+        enableNodePublicIP: false
         osSKU: 'AzureLinux' // Use Azure Linux for better security and performance
         // Disable UltraSSD unless specifically needed
         enableUltraSSD: false
@@ -154,10 +160,10 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
           }
     }
 
-    // Enhanced security profile
+    // Enhanced security profile for SSH-only authentication
     securityProfile: {
       workloadIdentity: {
-        enabled: true
+        enabled: true // Keep workload identity for secure service-to-service auth
       }
       // Enable defender for enhanced security monitoring
       defender: !empty(logAnalyticsWorkspaceId)
@@ -186,9 +192,10 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
       nodeOSUpgradeChannel: 'NodeImage'
     }
 
-    // API server access profile for security
+    // API server access profile for enhanced security
     apiServerAccessProfile: {
-      enablePrivateCluster: false // Set to true for production
+      enablePrivateCluster: enablePrivateCluster
+      authorizedIPRanges: !enablePrivateCluster && length(authorizedIpRanges) > 0 ? authorizedIpRanges : null
       disableRunCommand: true
     }
 
@@ -240,7 +247,7 @@ output sshConfiguration object = enableSshAccess
   ? {
       enabled: true
       username: sshUsername
-      keyProvided: !empty(sshPublicKey)
+      keyProvided: true // Always true when SSH access is enabled with SSH-only auth
       accessNote: 'SSH access is enabled. You can connect to nodes using: ssh ${sshUsername}@<node-ip>'
     }
   : {
