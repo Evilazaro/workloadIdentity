@@ -28,15 +28,15 @@ module security 'modules/security.bicep' = {
   scope: resourceGroup
   name: 'security'
   params: {
-    keyVaultName: solutionName
     secretName: 'my-secret-demo'
+    secretValue: 'Hello, World!' // This should be passed securely in production
     location: location
   }
 }
 
-output AZURE_KEYVAULT_ID string = security.outputs.keyVaultId
-output AZURE_KEYVAULT_NAME string = security.outputs.keyVaultName
-output AZURE_KEYVAULT_URI string = security.outputs.keyVaultUri
+output AZURE_KEYVAULT_ID string = security.outputs.AZURE_KEYVAULT_ID
+output AZURE_KEYVAULT_NAME string = security.outputs.AZURE_KEYVAULT_NAME
+output AZURE_KEYVAULT_URI string = security.outputs.AZURE_KEYVAULT_URI
 output AZURE_KEYVAULT_SECRET_ID string = security.outputs.AZURE_KEYVAULT_SECRET_ID
 output AZURE_KEYVAULT_SECRET_NAME string = security.outputs.AZURE_KEYVAULT_SECRET_NAME
 
