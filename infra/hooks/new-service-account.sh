@@ -2,9 +2,9 @@
 
 
 # Example usage (uncomment to test):
-SERVICE_ACCOUNT_NAME="${1:-}"
-SERVICE_ACCOUNT_NAMESPACE="${2:-}"
-AZURE_MANAGED_IDENTITY_CLIENT_ID="${3:-}"
+SERVICE_ACCOUNT_NAME="workload-identity-sa"
+SERVICE_ACCOUNT_NAMESPACE="default"
+AZURE_MANAGED_IDENTITY_CLIENT_ID="${1:-}"
 LOG_FILE="./setup.log"
 
 # Function: create_service_account

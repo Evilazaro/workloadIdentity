@@ -8,7 +8,15 @@ infra:
 hooks:
   preprovision:
     shell: sh
-    run: ./infra/hooks/preprovision.sh ${AZURE_ENV_NAME}
+    run: | 
+      ./infra/hooks/preprovision.sh \
+        ${AZURE_ENV_NAME}
+  
   postprovision:
     shell: sh
-    run: ./infra/hooks/postprovision.sh ${AZURE_RESOURCE_GROUP_NAME} ${AZURE_AKS_CLUSTER_NAME} ${AZURE_KEYVAULT_NAME} ${AZURE_ENV_NAME}
+    run: |
+      ./infra/hooks/postprovision.sh ${AZURE_RESOURCE_GROUP_NAME} \
+         ${AZURE_AKS_CLUSTER_NAME} \
+         ${AZURE_KEYVAULT_NAME} \
+         ${AZURE_ENV_NAME} \
+         ${AZURE_MANAGED_IDENTITY_CLIENT_ID}

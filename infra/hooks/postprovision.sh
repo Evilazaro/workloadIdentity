@@ -19,6 +19,7 @@ AZURE_RESOURCE_GROUP_NAME="${1:-}"
 AZURE_AKS_CLUSTER_NAME="${2:-}"
 AZURE_KEYVAULT_NAME="${3:-}"
 AZURE_ENV_NAME="${4:-}"
+AZURE_MANAGED_IDENTITY_CLIENT_ID="${5:-}"
 readonly ENV_FILE="./.azure/${AZURE_ENV_NAME}/.env"
 
 # Cleanup function to remove temporary files
@@ -181,6 +182,16 @@ configure_aks_credentials() {
     log_info "AKS credentials configured successfully"
 }
 
+# Function to create Kubernetes service account with workload identity
+create_service_account() {
+    log_info "Creating Kubernetes service account with workload identity"
+    ./new-service-account.sh "$AZURE_MANAGED_IDENTITY_CLIENT_ID" || {
+        log_error "Failed to create Kubernetes service account"
+        return 1
+    }
+    log_info "Kubernetes service account created successfully"
+}
+
 # Main execution function
 main() {
     log_info "Starting post-provision hook script"
@@ -191,7 +202,8 @@ main() {
     create_certificate
     store_certificate_secret
     configure_aks_credentials
-    
+    create_service_account
+
     log_info "Post-provision hook completed successfully"
 }
 
