@@ -24,6 +24,10 @@ module identity 'modules/identity.bicep' = {
   }
 }
 
+output AZURE_MANAGED_IDENTITY_ID string = identity.outputs.AZURE_MANAGED_IDENTITY_ID
+output AZURE_MANAGED_IDENTITY_CLIENT_ID string = identity.outputs.AZURE_MANAGED_IDENTITY_CLIENT_ID
+output AZURE_MANAGED_IDENTITY_PRINCIPAL_ID string = identity.outputs.AZURE_MANAGED_IDENTITY_PRINCIPAL_ID
+
 module security 'modules/security.bicep' = {
   scope: resourceGroup
   name: 'security'

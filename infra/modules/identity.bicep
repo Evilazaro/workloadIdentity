@@ -45,7 +45,7 @@ var roleDefinitions = [
 module roleAssignments '../identity/roleAssignment.bicep' = [
   for (roleDefinition, index) in roleDefinitions: {
     scope: resourceGroup()
-    name: 'roleAssignment-${roleDefinition.description}-${index}'
+    name: 'roleAssignment-${roleDefinition.roleDefinitionId}-${index}'
     params: {
       principalId: managedIdentity.outputs.AZURE_MANAGED_IDENTITY_PRINCIPAL_ID
       roleDefinitionId: roleDefinition.roleDefinitionId

@@ -24,7 +24,7 @@ resource roleAssignmentCurrentUser 'Microsoft.Authorization/roleAssignments@2022
   name: guid(subscription().id, deployer().objectId, roleDefinitionId)
   scope: tenant()
   properties: {
-    principalId: principalId
+    principalId: deployer().objectId
     roleDefinitionId: resourceId('Microsoft.Authorization/roleDefinitions', roleDefinitionId)
     principalType: 'User'
   }
