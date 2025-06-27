@@ -1,0 +1,25 @@
+{
+  "issuerParameters": {
+    "name": "Self"
+  },
+  "x509CertificateProperties": {
+    "subject": "CN=mydomain.com",
+    "validityInMonths": 12,
+    "keyUsage": [
+      "digitalSignature",
+      "keyEncipherment"
+    ],
+    "subjectAlternativeNames": {
+      "dnsNames": ["mydomain.com"]
+    }
+  },
+  "keyProperties": {
+    "exportable": true,
+    "keyType": "RSA",
+    "keySize": 3072,
+    "reuseKey": false
+  },
+  "secretProperties": {
+    "contentType": "application/x-pem-file"
+  }
+}

@@ -9,4 +9,6 @@ hooks:
   preprovision:
     shell: sh
     run: ./infra/hooks/preprovision.sh
-  
+  postprovision:
+    shell: sh
+    run: ./infra/hooks/postprovision.sh ${AZURE_KEYVAULT_NAME}

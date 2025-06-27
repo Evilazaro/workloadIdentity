@@ -18,3 +18,6 @@ resource kvSecret 'Microsoft.KeyVault/vaults/secrets@2024-11-01' = {
     value: 'Hello, World!' 
   }
 }
+
+output AZURE_KEYVAULT_SECRET_ID string = kvSecret.id
+output AZURE_KEYVAULT_SECRET_NAME string = kvSecret.name
