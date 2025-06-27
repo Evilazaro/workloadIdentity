@@ -4,7 +4,7 @@
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
 /.ssh/
-./cert-policy.json
+cert-policy.*
 
 # User-specific files
 *.rsuser

@@ -4,7 +4,8 @@ set -e
 
 KEY_DIR=".ssh"
 KEY_FILE="${KEY_DIR}/id_rsa"
-ENV_FILE="./.azure/eyuat5/.env"
+AZURE_ENV_NAME="${1:-}"
+readonly ENV_FILE="./.azure/${AZURE_ENV_NAME}/.env"
 
 mkdir -p "$KEY_DIR"
 

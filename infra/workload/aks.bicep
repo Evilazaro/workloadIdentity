@@ -212,28 +212,28 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
 
 // Outputs
 @description('The resource ID of the AKS cluster')
-output clusterResourceId string = aksCluster.id
+output AZURE_AKS_CLUSTER_ID string = aksCluster.id
 
 @description('The name of the AKS cluster')
-output clusterName string = aksCluster.name
+output AZURE_AKS_CLUSTER_NAME string = aksCluster.name
 
 @description('The FQDN of the AKS cluster')
-output clusterFqdn string = aksCluster.properties.fqdn
+output AZURE_AKS_CLUSTER_FQDN string = aksCluster.properties.fqdn
 
 @description('The OIDC issuer URL for workload identity')
-output oidcIssuerUrl string = aksCluster.properties.oidcIssuerProfile.issuerURL
+output AZURE_OIDC_ISSUER_URL string = aksCluster.properties.oidcIssuerProfile.issuerURL
 
 @description('The principal ID of the AKS cluster system-assigned managed identity')
-output clusterIdentityPrincipalId string = aksCluster.identity.principalId
+output AZURE_AKS_CLUSTER_IDENTITY_PRINCIPAL_ID string = aksCluster.identity.principalId
 
 @description('The tenant ID of the AKS cluster system-assigned managed identity')
-output clusterIdentityTenantId string = aksCluster.identity.tenantId
+output AZURE_AKS_CLUSTER_IDENTITY_TENANT_ID string = aksCluster.identity.tenantId
 
 @description('The node resource group name')
-output nodeResourceGroup string = aksCluster.properties.nodeResourceGroup
+output AZURE_NODE_RESOURCE_GROUP_NAME string = aksCluster.properties.nodeResourceGroup
 
 @description('The current Kubernetes version of the cluster')
-output currentKubernetesVersion string = aksCluster.properties.currentKubernetesVersion
+output AZURE_CURRENT_KUBERNETES_VERSION string = aksCluster.properties.currentKubernetesVersion
 
 @description('SSH access configuration')
 output sshConfiguration object = enableSshAccess

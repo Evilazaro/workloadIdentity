@@ -6,10 +6,15 @@ param location string
 @secure()
 param sshPublicKey string
 
+var resourceGroupName = '${solutionName}-${envName}-${location}-rg'
+
 resource resourceGroup 'Microsoft.Resources/resourceGroups@2025-04-01' = {
-  name: '${solutionName}-${envName}-${location}-rg'
+  name: resourceGroupName
   location: location
 }
+
+output AZURE_RESOURCE_GROUP_NAME string = resourceGroup.name
+output AZURE_RESOURCE_GROUP_ID string = resourceGroup.id
 
 module identity 'modules/identity.bicep' = {
   scope: resourceGroup
@@ -54,3 +59,8 @@ module workload 'modules/workload.bicep' = {
     sshPublicKey: sshPublicKey
   }
 }
+@description('The resource ID of the AKS cluster')
+output AZURE_AKS_CLUSTER_ID string = workload.outputs.AZURE_AKS_CLUSTER_ID
+
+@description('The name of the AKS cluster')
+output AZURE_AKS_CLUSTER_NAME string = workload.outputs.AZURE_AKS_CLUSTER_NAME

@@ -8,7 +8,7 @@ param logAnalyticsWorkspaceId string
 @secure()
 param sshPublicKey string
 
-module aks '../workload/aks.bicep' = {
+module aksCluster '../workload/aks.bicep' = {
   name: 'aksCluster'
   scope: resourceGroup()
   params: {
@@ -19,11 +19,17 @@ module aks '../workload/aks.bicep' = {
   }
 }
 
+@description('The resource ID of the AKS cluster')
+output AZURE_AKS_CLUSTER_ID string = aksCluster.outputs.AZURE_AKS_CLUSTER_ID
+
+@description('The name of the AKS cluster')
+output AZURE_AKS_CLUSTER_NAME string = aksCluster.outputs.AZURE_AKS_CLUSTER_NAME
+
 module diagnosticSettings '../workload/diagnosticSettings.bicep' = {
   name: 'aksClusterDiagnostics'
   scope: resourceGroup()
   params: {
-    aksClusterName: aks.outputs.clusterName
+    aksClusterName: aksCluster.outputs.AZURE_AKS_CLUSTER_NAME
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
   }
 }
