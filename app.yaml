@@ -8,18 +8,23 @@ spec:
   replicas: 5
   selector:
     matchLabels:
-      app: nginx
+      app: weatherapi
   template:
     metadata:
       labels:
-        app: nginx
+        app: weatherapi
         azure.workload.identity/use: "true"
     spec:
       serviceAccountName: workload-identity-sa
       containers:
-        - name: nginx
-          image: docker.io/library/nginx:latest
+        - name: weatherapi
+          image: wklidentitylvukgng7znr6sacr.azurecr.io/weatherapi:latest
           imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 8081
+              name: https
           resources:
             requests:
               cpu: "100m"
@@ -32,16 +37,16 @@ spec:
               mountPath: /mnt/secrets-store
               readOnly: true
           env:
-            - name: my-secret-demo
+            - name: mysql-secret
               valueFrom:
                 secretKeyRef:
-                  key: my-secret-demo
-                  name: my-secret-demo
-            - name: workload-identity-cert
+                  key: mysql-secret
+                  name: mysql-secret
+            - name: tls-crt
               valueFrom:
                 secretKeyRef:
                   key: tls.crt
-                  name: workload-identity-cert
+                  name: tls-crt
       volumes:
         - name: secrets-store
           csi:
@@ -49,3 +54,23 @@ spec:
             readOnly: true
             volumeAttributes:
               secretProviderClass: kv-sync
+
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: weatherapi-service
+  namespace: default  # Replace with your namespace
+spec:
+  type: LoadBalancer
+  selector:
+    app: weatherapi
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  - port: 81
+    targetPort: 8081
+    name: https

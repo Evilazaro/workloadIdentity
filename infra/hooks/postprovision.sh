@@ -8,7 +8,7 @@ set -euo pipefail  # Exit on error, undefined vars, and pipe failures
 
 # Global configuration
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly CERT_NAME="${CERT_NAME:-workload-identity-cert}"
+readonly CERT_NAME="${CERT_NAME:-tls-crt}"
 readonly CERT_SUBJECT="${CERT_SUBJECT:-CN=workload-identity.local}"
 readonly CERT_DNS_NAME="${CERT_DNS_NAME:-workload-identity.local}"
 readonly CERT_VALIDITY_MONTHS="${CERT_VALIDITY_MONTHS:-12}"
@@ -22,6 +22,7 @@ AZURE_ENV_NAME="${4:-}"
 AZURE_MANAGED_IDENTITY_CLIENT_ID="${5:-}"
 AZURE_MANAGED_IDENTITY_NAME="${6:-}"
 AZURE_OIDC_ISSUER_URL="${7:-}"
+AZURE_CONTAINER_REGISTRY_LOGIN_SERVER="${8:-}"
 readonly ENV_FILE="./.azure/${AZURE_ENV_NAME}/.env"
 
 # Cleanup function to remove temporary files
@@ -184,41 +185,6 @@ configure_aks_credentials() {
     log_info "AKS credentials configured successfully"
 }
 
-# Function to install Secrets Store CSI Driver and Azure Key Vault provider
-install_csi_drivers() {
-    log_info "Installing Secrets Store CSI Driver and Azure Key Vault provider"
-    
-    # Check if helm is available
-    if ! command -v helm >/dev/null 2>&1; then
-        log_error "Helm is not installed or not in PATH"
-        return 1
-    fi
-    
-    # Add the Azure Key Vault provider repository
-    log_info "Adding Azure Key Vault provider repository"
-    if ! helm repo add csi-secrets-store-provider-azure https://azure.github.io/secrets-store-csi-driver-provider-azure/charts; then
-        log_error "Failed to add Azure Key Vault provider repository"
-        return 1
-    fi
-    
-    # Update Helm repositories
-    log_info "Updating Helm repositories"
-    if ! helm repo update; then
-        log_error "Failed to update Helm repositories"
-        return 1
-    fi
-    
-    # Install the Azure Key Vault provider
-    log_info "Installing Azure Key Vault provider"
-    if ! helm install azure-csi-provider csi-secrets-store-provider-azure/csi-secrets-store-provider-azure --namespace kube-system; then
-        log_error "Failed to install Secrets Store CSI Driver or Azure Key Vault provider"
-        log_info "For more troubleshooting, check pod logs: kubectl logs -n kube-system -l app=secrets-store-csi-driver"
-        return 1
-    fi
-    
-    log_info "Secrets Store CSI Driver and Azure Key Vault provider installed successfully"
-}
-
 # Example usage (uncomment to test):
 SERVICE_ACCOUNT_NAME="workload-identity-sa"
 SERVICE_ACCOUNT_NAMESPACE="default"
@@ -344,7 +310,6 @@ create_federated_identity_credential() {
     log_info "Federated identity credential created successfully"
 }
 
-
 # Main execution function
 main() {
     log_info "Starting post-provision hook script"
@@ -358,6 +323,7 @@ main() {
     create_service_account
     create_federated_identity_credential
     installHelm
+
 
     log_info "Post-provision hook completed successfully"
 }

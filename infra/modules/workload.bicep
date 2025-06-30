@@ -15,6 +15,23 @@ param logAnalyticsWorkspaceId string
 @secure()
 param sshPublicKey string
 
+module containerRegistry '../workload/containerRegistry.bicep' = {
+  name: 'containerRegistry-${uniqueString(resourceGroup().id)}'
+  scope: resourceGroup()
+  params: {
+    name: '${name}${uniqueString(resourceGroup().id)}acr' // Consistent naming with unique string
+    location: location
+  }
+}
+
+@description('The resource ID of the Azure Container Registry')
+output AZURE_CONTAINER_REGISTRY_ID string = containerRegistry.outputs.AZURE_CONTAINER_REGISTRY_ID
+
+@description('The name of the Azure Container Registry')
+output AZURE_CONTAINER_REGISTRY_NAME string = containerRegistry.outputs.AZURE_CONTAINER_REGISTRY_NAME
+
+output AZURE_CONTAINER_REGISTRY_LOGIN_SERVER string = containerRegistry.outputs.AZURE_CONTAINER_REGISTRY_LOGIN_SERVER
+
 // Deploy AKS cluster with consistent naming and enhanced configuration
 module aksCluster '../workload/aks.bicep' = {
   name: 'aksCluster-${uniqueString(resourceGroup().id)}'
@@ -25,6 +42,9 @@ module aksCluster '../workload/aks.bicep' = {
     tags: tags
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     sshPublicKey: sshPublicKey
+    // ACR integration parameters
+    containerRegistryId: containerRegistry.outputs.AZURE_CONTAINER_REGISTRY_ID
+    enableAcrIntegration: true
   }
 }
 
@@ -46,6 +66,9 @@ output AZURE_AKS_CLUSTER_IDENTITY_PRINCIPAL_ID string = aksCluster.outputs.AZURE
 
 @description('The node resource group name containing AKS worker nodes')
 output AZURE_NODE_RESOURCE_GROUP_NAME string = aksCluster.outputs.AZURE_NODE_RESOURCE_GROUP_NAME
+
+@description('ACR integration details')
+output acrIntegration object = aksCluster.outputs.acrIntegration
 
 // Deploy diagnostic settings for enhanced monitoring and compliance
 // This module automatically depends on the AKS cluster due to output reference
