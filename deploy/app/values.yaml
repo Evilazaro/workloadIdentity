@@ -7,7 +7,7 @@ replicaCount: 5
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: wklidentitypobfnoq76c5rcacr.azurecr.io/weatherapi
+  repository: wklidentitylvukgng7znr6sacr.azurecr.io/weatherapi
   # This sets the pull policy for images.
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
@@ -37,7 +37,9 @@ serviceAccount:
 podAnnotations: {}
 # This is for setting Kubernetes Labels to a Pod.
 # For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
-podLabels: {}
+podLabels: {
+  app: weatherapi
+}
 
 podSecurityContext: {}
   # fsGroup: 2000
@@ -55,7 +57,20 @@ service:
   # This sets the service type more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
   type: LoadBalancer
   # This sets the ports more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports
-  port: 80
+  ports:
+    # This sets the port that the service will listen on.
+    - port: 80
+      # This sets the target port that the service will forward traffic to.
+      targetPort: 8080
+      # This sets the protocol for the service.
+      protocol: TCP
+      # This sets the name of the port.
+      name: http
+    - port: 81
+      targetPort: 8081
+      protocol: TCP
+      name: https
+  
 
 # This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ingress:
@@ -115,13 +130,17 @@ volumeMounts:
 
 nodeSelector: {}
 
+selectorLabels: {
+  app: weatherapi
+}
+
 tolerations: []
 
 affinity: {}
 
 SecretProviderClass:
-  clientID: "352b2423-b539-4c6d-bfa1-96262a804879"
-  keyvaultName: "wkl-pobfnoq76c5rc-kv"
+  clientID: "40e28bee-baaf-43dc-8ae7-09c013d6f14f"
+  keyvaultName: "wkl-lvukgng7znr6s-kv"
   tenantId: "0e2ff29e-431a-420b-8a46-c6f39106927b"
 
 

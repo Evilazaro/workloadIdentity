@@ -18,8 +18,13 @@ spec:
       serviceAccountName: workload-identity-sa
       containers:
         - name: weatherapi
-          image: wklidentitypobfnoq76c5rcacr.azurecr.io/weatherapi:latest
+          image: wklidentitylvukgng7znr6sacr.azurecr.io/weatherapi:latest
           imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 8081
+              name: https
           resources:
             requests:
               cpu: "100m"
@@ -49,3 +54,23 @@ spec:
             readOnly: true
             volumeAttributes:
               secretProviderClass: kv-sync
+
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: weatherapi-service
+  namespace: default  # Replace with your namespace
+spec:
+  type: LoadBalancer
+  selector:
+    app: weatherapi
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  - port: 81
+    targetPort: 8081
+    name: https
