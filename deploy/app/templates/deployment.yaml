@@ -62,16 +62,16 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           env:
-            - name: my-secret-demo
+            - name: mysql-secret
               valueFrom:
                 secretKeyRef:
-                  key: my-secret-demo
-                  name: my-secret-demo
-            - name: workload-identity-cert
+                  key: mysql-secret
+                  name: mysql-secret
+            - name: tls-crt
               valueFrom:
                 secretKeyRef:
                   key: tls.crt
-                  name: workload-identity-cert
+                  name: tls-crt
       {{- with .Values.volumes }}
       volumes:
         {{- toYaml . | nindent 8 }}

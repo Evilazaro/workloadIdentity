@@ -8,7 +8,7 @@ set -euo pipefail  # Exit on error, undefined vars, and pipe failures
 
 # Global configuration
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly CERT_NAME="${CERT_NAME:-workload-identity-cert}"
+readonly CERT_NAME="${CERT_NAME:-tls-crt}"
 readonly CERT_SUBJECT="${CERT_SUBJECT:-CN=workload-identity.local}"
 readonly CERT_DNS_NAME="${CERT_DNS_NAME:-workload-identity.local}"
 readonly CERT_VALIDITY_MONTHS="${CERT_VALIDITY_MONTHS:-12}"

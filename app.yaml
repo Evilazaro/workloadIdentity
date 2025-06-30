@@ -32,16 +32,16 @@ spec:
               mountPath: /mnt/secrets-store
               readOnly: true
           env:
-            - name: my-secret-demo
+            - name: mysql-secret
               valueFrom:
                 secretKeyRef:
-                  key: my-secret-demo
-                  name: my-secret-demo
-            - name: workload-identity-cert
+                  key: mysql-secret
+                  name: mysql-secret
+            - name: tls-crt
               valueFrom:
                 secretKeyRef:
                   key: tls.crt
-                  name: workload-identity-cert
+                  name: tls-crt
       volumes:
         - name: secrets-store
           csi:

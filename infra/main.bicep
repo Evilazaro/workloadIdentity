@@ -33,7 +33,7 @@ module security 'modules/security.bicep' = {
   scope: resourceGroup
   name: 'security'
   params: {
-    secretName: 'my-secret-demo'
+    secretName: 'mysql-secret'
     secretValue: 'Hello, World!' // This should be passed securely in production
     location: location
   }

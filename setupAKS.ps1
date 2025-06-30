@@ -539,8 +539,8 @@ function New-KeyVaultSecret {
     [CmdletBinding()]
     param()
 
-    $script:KeyVaultSecretName = "my-secret-demo"
-    $script:KeyVaultCertificateName = "workload-identity-cert"
+    $script:KeyVaultSecretName = "mysql-secret"
+    $script:KeyVaultCertificateName = "tls-crt"
     $certificateOutputPath = ".\certs"
     $tempPolicyPath = ".\cert-policy.json"
     
