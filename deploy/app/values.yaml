@@ -117,3 +117,8 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+SecretProviderClass:
+  clientID: "${AZURE_MANAGED_IDENTITY_CLIENT_ID}"
+  keyvaultName: "${AZURE_KEYVAULT_NAME}"
+  tenantId: "${AZURE_TENANT_ID}"
