@@ -330,8 +330,8 @@ create_federated_identity_credential() {
     log_info "Creating federated identity credential: $federated_identity_credential_name"
 
     if ! az identity federated-credential create \
-        --name "$AZURE_MANAGED_IDENTITY_NAME" \
-        --identity-name "$user_assigned_identity_name" \
+        --name "$federated_identity_credential_name" \
+        --identity-name "$AZURE_MANAGED_IDENTITY_NAME" \
         --resource-group "$AZURE_RESOURCE_GROUP_NAME" \
         --issuer "$AZURE_OIDC_ISSUER_URL" \
         --subject "system:serviceaccount:${service_account_namespace}:${service_account_name}" \

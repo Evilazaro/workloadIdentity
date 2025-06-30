@@ -119,6 +119,6 @@ tolerations: []
 affinity: {}
 
 SecretProviderClass:
-  clientID: "${AZURE_MANAGED_IDENTITY_CLIENT_ID}"
-  keyvaultName: "${AZURE_KEYVAULT_NAME}"
-  tenantId: "${AZURE_TENANT_ID}"
+  clientID: "6cdd01e0-43c4-4903-aac8-b9016cce779a"
+  keyvaultName: "wkl-vahxlnengs6bg-kv"
+  tenantId: "0e2ff29e-431a-420b-8a46-c6f39106927b"
