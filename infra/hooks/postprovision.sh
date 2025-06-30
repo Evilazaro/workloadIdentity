@@ -185,41 +185,6 @@ configure_aks_credentials() {
     log_info "AKS credentials configured successfully"
 }
 
-# Function to install Secrets Store CSI Driver and Azure Key Vault provider
-install_csi_drivers() {
-    log_info "Installing Secrets Store CSI Driver and Azure Key Vault provider"
-    
-    # Check if helm is available
-    if ! command -v helm >/dev/null 2>&1; then
-        log_error "Helm is not installed or not in PATH"
-        return 1
-    fi
-    
-    # Add the Azure Key Vault provider repository
-    log_info "Adding Azure Key Vault provider repository"
-    if ! helm repo add csi-secrets-store-provider-azure https://azure.github.io/secrets-store-csi-driver-provider-azure/charts; then
-        log_error "Failed to add Azure Key Vault provider repository"
-        return 1
-    fi
-    
-    # Update Helm repositories
-    log_info "Updating Helm repositories"
-    if ! helm repo update; then
-        log_error "Failed to update Helm repositories"
-        return 1
-    fi
-    
-    # Install the Azure Key Vault provider
-    log_info "Installing Azure Key Vault provider"
-    if ! helm install azure-csi-provider csi-secrets-store-provider-azure/csi-secrets-store-provider-azure --namespace kube-system; then
-        log_error "Failed to install Secrets Store CSI Driver or Azure Key Vault provider"
-        log_info "For more troubleshooting, check pod logs: kubectl logs -n kube-system -l app=secrets-store-csi-driver"
-        return 1
-    fi
-    
-    log_info "Secrets Store CSI Driver and Azure Key Vault provider installed successfully"
-}
-
 # Example usage (uncomment to test):
 SERVICE_ACCOUNT_NAME="workload-identity-sa"
 SERVICE_ACCOUNT_NAMESPACE="default"
@@ -345,39 +310,6 @@ create_federated_identity_credential() {
     log_info "Federated identity credential created successfully"
 }
 
-function buildContainerImage() {
-    log_info "Building container image for workload identity"
-    
-    # Ensure Docker is installed
-    if ! command -v docker >/dev/null 2>&1; then
-        log_error "Docker is not installed or not in PATH"
-        return 1
-    fi
-
-    # Login to Azure Container Registry
-    log_info "Logging in to Azure Container Registry"
-    if ! az acr login --name "${AZURE_CONTAINER_REGISTRY_LOGIN_SERVER}" >/dev/null; then
-        log_error "Failed to log in to Azure Container Registry"
-        return 1
-    fi
-    
-    # Build the Docker image
-    if ! docker build -t "${AZURE_CONTAINER_REGISTRY_LOGIN_SERVER}/weatherapi:latest" .; then
-        log_error "Failed to build Docker image"
-        return 1
-    fi
-
-    # Push the Docker image to Azure Container Registry
-    log_info "Pushing Docker image to Azure Container Registry"
-    if ! docker push "${AZURE_CONTAINER_REGISTRY_LOGIN_SERVER}/weatherapi:latest"; then
-        log_error "Failed to push Docker image to Azure Container Registry"
-        return 1
-    fi
-    
-    log_info "Docker image built successfully"
-}
-
-
 # Main execution function
 main() {
     log_info "Starting post-provision hook script"
@@ -391,6 +323,7 @@ main() {
     create_service_account
     create_federated_identity_credential
     installHelm
+
 
     log_info "Post-provision hook completed successfully"
 }
