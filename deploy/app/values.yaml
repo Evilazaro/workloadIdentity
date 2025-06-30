@@ -7,11 +7,12 @@ replicaCount: 5
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: wklidentityxfp3m7x4zp6hgacr.azurecr.io/weatherapi:latest
+  repository: wklidentitypobfnoq76c5rcacr.azurecr.io/weatherapi
   # This sets the pull policy for images.
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  tag: "latest"
+  
 
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []
@@ -119,8 +120,8 @@ tolerations: []
 affinity: {}
 
 SecretProviderClass:
-  clientID: "82b0ee2c-fe6b-40d6-8ee0-fbe72a03ec790c1cb6a7-0a6d-41e7-8066-fee2b9fd935f"
-  keyvaultName: "wkl-xfp3m7x4zp6hg-kv"
+  clientID: "352b2423-b539-4c6d-bfa1-96262a804879"
+  keyvaultName: "wkl-pobfnoq76c5rc-kv"
   tenantId: "0e2ff29e-431a-420b-8a46-c6f39106927b"
 
 

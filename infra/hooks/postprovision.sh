@@ -22,6 +22,7 @@ AZURE_ENV_NAME="${4:-}"
 AZURE_MANAGED_IDENTITY_CLIENT_ID="${5:-}"
 AZURE_MANAGED_IDENTITY_NAME="${6:-}"
 AZURE_OIDC_ISSUER_URL="${7:-}"
+AZURE_CONTAINER_REGISTRY_LOGIN_SERVER="${8:-}"
 readonly ENV_FILE="./.azure/${AZURE_ENV_NAME}/.env"
 
 # Cleanup function to remove temporary files
@@ -342,6 +343,38 @@ create_federated_identity_credential() {
     fi
 
     log_info "Federated identity credential created successfully"
+}
+
+function buildContainerImage() {
+    log_info "Building container image for workload identity"
+    
+    # Ensure Docker is installed
+    if ! command -v docker >/dev/null 2>&1; then
+        log_error "Docker is not installed or not in PATH"
+        return 1
+    fi
+
+    # Login to Azure Container Registry
+    log_info "Logging in to Azure Container Registry"
+    if ! az acr login --name "${AZURE_CONTAINER_REGISTRY_LOGIN_SERVER}" >/dev/null; then
+        log_error "Failed to log in to Azure Container Registry"
+        return 1
+    fi
+    
+    # Build the Docker image
+    if ! docker build -t "${AZURE_CONTAINER_REGISTRY_LOGIN_SERVER}/weatherapi:latest" .; then
+        log_error "Failed to build Docker image"
+        return 1
+    fi
+
+    # Push the Docker image to Azure Container Registry
+    log_info "Pushing Docker image to Azure Container Registry"
+    if ! docker push "${AZURE_CONTAINER_REGISTRY_LOGIN_SERVER}/weatherapi:latest"; then
+        log_error "Failed to push Docker image to Azure Container Registry"
+        return 1
+    fi
+    
+    log_info "Docker image built successfully"
 }
 
 

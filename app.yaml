@@ -8,17 +8,17 @@ spec:
   replicas: 5
   selector:
     matchLabels:
-      app: nginx
+      app: weatherapi
   template:
     metadata:
       labels:
-        app: nginx
+        app: weatherapi
         azure.workload.identity/use: "true"
     spec:
       serviceAccountName: workload-identity-sa
       containers:
-        - name: nginx
-          image: docker.io/library/nginx:latest
+        - name: weatherapi
+          image: wklidentitypobfnoq76c5rcacr.azurecr.io/weatherapi:latest
           imagePullPolicy: Always
           resources:
             requests:
