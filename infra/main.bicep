@@ -27,6 +27,7 @@ module identity 'modules/identity.bicep' = {
 output AZURE_MANAGED_IDENTITY_ID string = identity.outputs.AZURE_MANAGED_IDENTITY_ID
 output AZURE_MANAGED_IDENTITY_CLIENT_ID string = identity.outputs.AZURE_MANAGED_IDENTITY_CLIENT_ID
 output AZURE_MANAGED_IDENTITY_PRINCIPAL_ID string = identity.outputs.AZURE_MANAGED_IDENTITY_PRINCIPAL_ID
+output AZURE_MANAGED_IDENTITY_NAME string = identity.outputs.AZURE_MANAGED_IDENTITY_NAME
 
 module security 'modules/security.bicep' = {
   scope: resourceGroup
@@ -68,3 +69,8 @@ output AZURE_AKS_CLUSTER_ID string = workload.outputs.AZURE_AKS_CLUSTER_ID
 
 @description('The name of the AKS cluster')
 output AZURE_AKS_CLUSTER_NAME string = workload.outputs.AZURE_AKS_CLUSTER_NAME
+
+output AZURE_AKS_CLUSTER_FQDN string = workload.outputs.AZURE_AKS_CLUSTER_FQDN
+
+@description('The OIDC issuer URL for workload identity')
+output AZURE_OIDC_ISSUER_URL string = workload.outputs.AZURE_OIDC_ISSUER_URL

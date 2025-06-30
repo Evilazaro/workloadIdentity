@@ -9,7 +9,7 @@ replicaCount: 5
 image:
   repository: nginx
   # This sets the pull policy for images.
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
@@ -104,7 +104,7 @@ volumes:
     driver: secrets-store.csi.k8s.io
     readOnly: true
     volumeAttributes:
-      secretProviderClass: kv-sync-helm
+      secretProviderClass: kv-sync
 
 # Additional volumeMounts on the output Deployment definition.
 volumeMounts: 
@@ -117,3 +117,8 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+SecretProviderClass:
+  clientID: "6cdd01e0-43c4-4903-aac8-b9016cce779a"
+  keyvaultName: "wkl-vahxlnengs6bg-kv"
+  tenantId: "0e2ff29e-431a-420b-8a46-c6f39106927b"

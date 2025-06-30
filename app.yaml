@@ -18,7 +18,8 @@ spec:
       serviceAccountName: workload-identity-sa
       containers:
         - name: nginx
-          image: nginx
+          image: docker.io/library/nginx:latest
+          imagePullPolicy: Always
           resources:
             requests:
               cpu: "100m"
@@ -36,11 +37,11 @@ spec:
                 secretKeyRef:
                   key: my-secret-demo
                   name: my-secret-demo
-            - name: my-cert-demo
+            - name: workload-identity-cert
               valueFrom:
                 secretKeyRef:
                   key: tls.crt
-                  name: my-cert-demo
+                  name: workload-identity-cert
       volumes:
         - name: secrets-store
           csi:

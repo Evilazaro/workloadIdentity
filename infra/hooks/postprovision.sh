@@ -20,6 +20,8 @@ AZURE_AKS_CLUSTER_NAME="${2:-}"
 AZURE_KEYVAULT_NAME="${3:-}"
 AZURE_ENV_NAME="${4:-}"
 AZURE_MANAGED_IDENTITY_CLIENT_ID="${5:-}"
+AZURE_MANAGED_IDENTITY_NAME="${6:-}"
+AZURE_OIDC_ISSUER_URL="${7:-}"
 readonly ENV_FILE="./.azure/${AZURE_ENV_NAME}/.env"
 
 # Cleanup function to remove temporary files
@@ -314,6 +316,35 @@ installHelm() {
     log_info "Helm installed successfully"
 }
 
+# Function to create federated identity credential using Azure CLI
+create_federated_identity_credential() {
+    local federated_identity_credential_name="workload-identity-fa"
+    local service_account_namespace="default"
+    local service_account_name="workload-identity-sa"
+
+    if [[ -z "$AZURE_OIDC_ISSUER_URL" ]]; then
+        log_error "AKS OIDC issuer URL is required (set AKS_OIDC_ISSUER env var)"
+        return 1
+    fi
+
+    log_info "Creating federated identity credential: $federated_identity_credential_name"
+
+    if ! az identity federated-credential create \
+        --name "$federated_identity_credential_name" \
+        --identity-name "$AZURE_MANAGED_IDENTITY_NAME" \
+        --resource-group "$AZURE_RESOURCE_GROUP_NAME" \
+        --issuer "$AZURE_OIDC_ISSUER_URL" \
+        --subject "system:serviceaccount:${service_account_namespace}:${service_account_name}" \
+        --audiences "api://AzureADTokenExchange" \
+        --output none; then
+        log_error "Failed to create federated identity credential"
+        return 1
+    fi
+
+    log_info "Federated identity credential created successfully"
+}
+
+
 # Main execution function
 main() {
     log_info "Starting post-provision hook script"
@@ -324,8 +355,9 @@ main() {
     create_certificate
     store_certificate_secret
     configure_aks_credentials
-    installHelm
     create_service_account
+    create_federated_identity_credential
+    installHelm
 
     log_info "Post-provision hook completed successfully"
 }
