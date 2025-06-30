@@ -278,6 +278,42 @@ EOF
     fi
 }
 
+installHelm() {
+    log_info "Installing Helm"
+    if command -v helm >/dev/null 2>&1; then
+        log_info "Helm is already installed"
+        return 0
+    fi
+
+    # Install Helm using the script provided in the Helm documentation
+    if ! curl -fsSL https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null; then
+        log_error "Failed to download Helm signing key"
+        return 1
+    fi
+
+    if ! sudo apt-get install -y apt-transport-https; then
+        log_error "Failed to install apt-transport-https"
+        return 1
+    fi
+
+    if ! echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list; then
+        log_error "Failed to add Helm apt repository"
+        return 1
+    fi
+
+    if ! sudo apt-get update; then
+        log_error "Failed to update apt repositories"
+        return 1
+    fi
+
+    if ! sudo apt-get install -y helm; then
+        log_error "Failed to install Helm"
+        return 1
+    fi
+
+    log_info "Helm installed successfully"
+}
+
 # Main execution function
 main() {
     log_info "Starting post-provision hook script"
@@ -288,7 +324,7 @@ main() {
     create_certificate
     store_certificate_secret
     configure_aks_credentials
-    install_csi_drivers
+    installHelm
     create_service_account
 
     log_info "Post-provision hook completed successfully"
