@@ -7,7 +7,7 @@ replicaCount: 5
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: nginx
+  repository: wklidentityxfp3m7x4zp6hgacr.azurecr.io/weatherapi:latest
   # This sets the pull policy for images.
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
@@ -119,6 +119,8 @@ tolerations: []
 affinity: {}
 
 SecretProviderClass:
-  clientID: "82b0ee2c-fe6b-40d6-8ee0-fbe72a03ec79"
-  keyvaultName: "wkl-cunstbxhsnafs-kv"
+  clientID: "82b0ee2c-fe6b-40d6-8ee0-fbe72a03ec790c1cb6a7-0a6d-41e7-8066-fee2b9fd935f"
+  keyvaultName: "wkl-xfp3m7x4zp6hg-kv"
   tenantId: "0e2ff29e-431a-420b-8a46-c6f39106927b"
+
+

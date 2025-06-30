@@ -35,6 +35,12 @@ param enablePrivateCluster bool = false
 @description('Authorized IP ranges for API server access (empty array allows all IPs)')
 param authorizedIpRanges array = []
 
+@description('Azure Container Registry resource ID for AKS to pull images')
+param containerRegistryId string
+
+@description('Enable ACR integration with AKS')
+param enableAcrIntegration bool = true
+
 // Use the latest stable API version
 resource aksCluster 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
   name: name
@@ -218,6 +224,20 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2024-09-01' = {
   }
 }
 
+// ACR Pull Role Assignment for AKS
+// This allows AKS to pull images from the specified ACR
+resource acrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (enableAcrIntegration && !empty(containerRegistryId)) {
+  name: guid(containerRegistryId, aksCluster.id, 'AcrPull')
+  properties: {
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      '7f951dda-4ed3-4680-a7ca-43fe172d538d'
+    ) // AcrPull role
+    principalId: aksCluster.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // Outputs
 @description('The resource ID of the AKS cluster')
 output AZURE_AKS_CLUSTER_ID string = aksCluster.id
@@ -254,4 +274,17 @@ output sshConfiguration object = enableSshAccess
   : {
       enabled: false
       note: 'SSH access is disabled for enhanced security'
+    }
+
+@description('ACR integration status')
+output acrIntegration object = enableAcrIntegration && !empty(containerRegistryId)
+  ? {
+      enabled: true
+      registryId: containerRegistryId
+      roleAssignmentId: acrPullRoleAssignment.id
+      note: 'AKS has AcrPull permissions to the specified Container Registry'
+    }
+  : {
+      enabled: false
+      note: 'ACR integration is disabled or no registry specified'
     }

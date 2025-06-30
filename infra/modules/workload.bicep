@@ -42,10 +42,10 @@ module aksCluster '../workload/aks.bicep' = {
     tags: tags
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     sshPublicKey: sshPublicKey
+    // ACR integration parameters
+    containerRegistryId: containerRegistry.outputs.AZURE_CONTAINER_REGISTRY_ID
+    enableAcrIntegration: true
   }
-  dependsOn: [
-    containerRegistry // Ensure the container registry is created before the AKS cluster
-  ]
 }
 
 // AKS cluster outputs using AZD naming conventions for consistency
@@ -66,6 +66,9 @@ output AZURE_AKS_CLUSTER_IDENTITY_PRINCIPAL_ID string = aksCluster.outputs.AZURE
 
 @description('The node resource group name containing AKS worker nodes')
 output AZURE_NODE_RESOURCE_GROUP_NAME string = aksCluster.outputs.AZURE_NODE_RESOURCE_GROUP_NAME
+
+@description('ACR integration details')
+output acrIntegration object = aksCluster.outputs.acrIntegration
 
 // Deploy diagnostic settings for enhanced monitoring and compliance
 // This module automatically depends on the AKS cluster due to output reference
