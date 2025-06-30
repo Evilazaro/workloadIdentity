@@ -182,6 +182,41 @@ configure_aks_credentials() {
     log_info "AKS credentials configured successfully"
 }
 
+# Function to install Secrets Store CSI Driver and Azure Key Vault provider
+install_csi_drivers() {
+    log_info "Installing Secrets Store CSI Driver and Azure Key Vault provider"
+    
+    # Check if helm is available
+    if ! command -v helm >/dev/null 2>&1; then
+        log_error "Helm is not installed or not in PATH"
+        return 1
+    fi
+    
+    # Add the Azure Key Vault provider repository
+    log_info "Adding Azure Key Vault provider repository"
+    if ! helm repo add csi-secrets-store-provider-azure https://azure.github.io/secrets-store-csi-driver-provider-azure/charts; then
+        log_error "Failed to add Azure Key Vault provider repository"
+        return 1
+    fi
+    
+    # Update Helm repositories
+    log_info "Updating Helm repositories"
+    if ! helm repo update; then
+        log_error "Failed to update Helm repositories"
+        return 1
+    fi
+    
+    # Install the Azure Key Vault provider
+    log_info "Installing Azure Key Vault provider"
+    if ! helm install azure-csi-provider csi-secrets-store-provider-azure/csi-secrets-store-provider-azure --namespace kube-system; then
+        log_error "Failed to install Secrets Store CSI Driver or Azure Key Vault provider"
+        log_info "For more troubleshooting, check pod logs: kubectl logs -n kube-system -l app=secrets-store-csi-driver"
+        return 1
+    fi
+    
+    log_info "Secrets Store CSI Driver and Azure Key Vault provider installed successfully"
+}
+
 # Example usage (uncomment to test):
 SERVICE_ACCOUNT_NAME="workload-identity-sa"
 SERVICE_ACCOUNT_NAMESPACE="default"
@@ -253,6 +288,7 @@ main() {
     create_certificate
     store_certificate_secret
     configure_aks_credentials
+    install_csi_drivers
     create_service_account
 
     log_info "Post-provision hook completed successfully"
