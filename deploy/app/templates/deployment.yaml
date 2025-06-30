@@ -67,11 +67,11 @@ spec:
                 secretKeyRef:
                   key: my-secret-demo
                   name: my-secret-demo
-            - name: my-cert-demo
+            - name: workload-identity-cert
               valueFrom:
                 secretKeyRef:
                   key: tls.crt
-                  name: my-cert-demo
+                  name: workload-identity-cert
       {{- with .Values.volumes }}
       volumes:
         {{- toYaml . | nindent 8 }}

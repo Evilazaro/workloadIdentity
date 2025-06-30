@@ -540,7 +540,7 @@ function New-KeyVaultSecret {
     param()
 
     $script:KeyVaultSecretName = "my-secret-demo"
-    $script:KeyVaultCertificateName = "my-cert-demo"
+    $script:KeyVaultCertificateName = "workload-identity-cert"
     $certificateOutputPath = ".\certs"
     $tempPolicyPath = ".\cert-policy.json"
     
