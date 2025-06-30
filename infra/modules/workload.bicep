@@ -15,6 +15,23 @@ param logAnalyticsWorkspaceId string
 @secure()
 param sshPublicKey string
 
+module containerRegistry '../workload/containerRegistry.bicep' = {
+  name: 'containerRegistry-${uniqueString(resourceGroup().id)}'
+  scope: resourceGroup()
+  params: {
+    name: '${name}${uniqueString(resourceGroup().id)}acr' // Consistent naming with unique string
+    location: location
+  }
+}
+
+@description('The resource ID of the Azure Container Registry')
+output AZURE_CONTAINER_REGISTRY_ID string = containerRegistry.outputs.AZURE_CONTAINER_REGISTRY_ID
+
+@description('The name of the Azure Container Registry')
+output AZURE_CONTAINER_REGISTRY_NAME string = containerRegistry.outputs.AZURE_CONTAINER_REGISTRY_NAME
+
+output AZURE_CONTAINER_REGISTRY_LOGIN_SERVER string = containerRegistry.outputs.AZURE_CONTAINER_REGISTRY_LOGIN_SERVER
+
 // Deploy AKS cluster with consistent naming and enhanced configuration
 module aksCluster '../workload/aks.bicep' = {
   name: 'aksCluster-${uniqueString(resourceGroup().id)}'
@@ -26,6 +43,9 @@ module aksCluster '../workload/aks.bicep' = {
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
     sshPublicKey: sshPublicKey
   }
+  dependsOn: [
+    containerRegistry // Ensure the container registry is created before the AKS cluster
+  ]
 }
 
 // AKS cluster outputs using AZD naming conventions for consistency

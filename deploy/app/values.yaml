@@ -119,6 +119,6 @@ tolerations: []
 affinity: {}
 
 SecretProviderClass:
-  clientID: "6cdd01e0-43c4-4903-aac8-b9016cce779a"
-  keyvaultName: "wkl-vahxlnengs6bg-kv"
+  clientID: "82b0ee2c-fe6b-40d6-8ee0-fbe72a03ec79"
+  keyvaultName: "wkl-cunstbxhsnafs-kv"
   tenantId: "0e2ff29e-431a-420b-8a46-c6f39106927b"

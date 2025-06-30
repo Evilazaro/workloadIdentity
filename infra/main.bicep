@@ -34,7 +34,7 @@ module security 'modules/security.bicep' = {
   name: 'security'
   params: {
     secretName: 'mysql-secret'
-    secretValue: 'Hello, World!' // This should be passed securely in production
+    secretValue: '9q:0#%?^12zH' // This should be passed securely in production
     location: location
   }
 }
@@ -74,3 +74,11 @@ output AZURE_AKS_CLUSTER_FQDN string = workload.outputs.AZURE_AKS_CLUSTER_FQDN
 
 @description('The OIDC issuer URL for workload identity')
 output AZURE_OIDC_ISSUER_URL string = workload.outputs.AZURE_OIDC_ISSUER_URL
+
+@description('The resource ID of the Azure Container Registry')
+output AZURE_CONTAINER_REGISTRY_ID string = workload.outputs.AZURE_CONTAINER_REGISTRY_ID
+
+@description('The name of the Azure Container Registry')
+output AZURE_CONTAINER_REGISTRY_NAME string = workload.outputs.AZURE_CONTAINER_REGISTRY_NAME
+
+output AZURE_CONTAINER_REGISTRY_LOGIN_SERVER string = workload.outputs.AZURE_CONTAINER_REGISTRY_LOGIN_SERVER

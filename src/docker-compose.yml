@@ -1,0 +1,6 @@
+services:
+  weather.api:
+    image: ${DOCKER_REGISTRY-}weatherapi
+    build:
+      context: .
+      dockerfile: Weather.API/Dockerfile
