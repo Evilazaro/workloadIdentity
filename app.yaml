@@ -18,7 +18,7 @@ spec:
       serviceAccountName: workload-identity-sa
       containers:
         - name: weatherapi
-          image: wklidentitylvukgng7znr6sacr.azurecr.io/weatherapi:latest
+          image: wklidentity65sg2orx43hneacr.azurecr.io/weatherapi:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
